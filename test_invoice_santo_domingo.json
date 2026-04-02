@@ -1,0 +1,101 @@
+{
+  "invoice_reference": "E32000000117",
+  "vendor": "Remolcadores y Barcazas del Caribe S.A. (REBARCA)",
+  "vessel_name": "SILVER GINNY",
+  "service_date": "2025-08-27",
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "VB-RON-DOCKING 27-AGO-2025",
+      "date": "2025-08-27",
+      "amount": 1368.51,
+      "gt": 29460,
+      "tug_count": 1,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Berth",
+      "description": "VB-BONGO-DOCKING 27-AGO-2025",
+      "date": "2025-08-27",
+      "amount": 1368.51,
+      "gt": 29460,
+      "tug_count": 1,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "VB-RON-UNDOCKING 28-AGO-2025",
+      "date": "2025-08-28",
+      "amount": 1368.51,
+      "gt": 29460,
+      "tug_count": 1,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "VB-BONGO-UNDOCKING 28-AGO-2025",
+      "date": "2025-08-28",
+      "amount": 1368.51,
+      "gt": 29460,
+      "tug_count": 1,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Overtime",
+      "description": "VB-RON-DOCKING 1 Hour Overtime",
+      "date": "2025-08-27",
+      "amount": 912.34,
+      "is_adjustment": true,
+      "note": "Prorata 40min of first_hour_rate: 1368.51/60*40=912.34"
+    },
+    {
+      "service_type": "Overtime",
+      "description": "VB-RON-DOCKING 1 Additional Hour",
+      "date": "2025-08-27",
+      "amount": 912.34,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "Overtime",
+      "description": "VB-BONGO-DOCKING 1 Hour Overtime",
+      "date": "2025-08-27",
+      "amount": 912.34,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "Overtime",
+      "description": "VB-BONGO-DOCKING 1 Additional Hour",
+      "date": "2025-08-27",
+      "amount": 912.34,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "BunkerSurcharge",
+      "description": "Bunker Surcharge - VB-RON Docking",
+      "date": "2025-08-27",
+      "amount": 532.00,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "BunkerSurcharge",
+      "description": "Bunker Surcharge - VB-BONGO Docking",
+      "date": "2025-08-27",
+      "amount": 532.00,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "BunkerSurcharge",
+      "description": "Bunker Surcharge - VB-RON Undocking",
+      "date": "2025-08-28",
+      "amount": 532.00,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "BunkerSurcharge",
+      "description": "Bunker Surcharge - VB-BONGO Undocking",
+      "date": "2025-08-28",
+      "amount": 532.00,
+      "is_adjustment": true
+    }
+  ]
+}

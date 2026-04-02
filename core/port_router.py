@@ -15,6 +15,7 @@ the router:
 """
 
 import logging
+from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
 # Assuming these calculation modules are in a 'handlers' subdirectory or accessible in path
@@ -49,6 +50,7 @@ OVERTIME_PATTERN_MAP = {
     "prorata_10min_rounding_on_first_hour_rate":     "prorata_10min_rounding",
     "first_60min_full_hour_then_30min_increments":   "first_full_hour_then_30min",
     "prorated_every_15min":                          "flat_hourly_per_tug",  # Panama
+    "fixed_hourly_amount_per_tug":                   "fixed_hourly_amount",  # Las Palmas
 }
 
 # Flat overtime rates for ports where it is not a percentage of base
@@ -199,15 +201,36 @@ def _resolve_sof_event(sof_data: dict, service_type: str, service_date: str = ""
     events = sof_data.get("events") or sof_data.get("service_events") or []
     service_type_lower = service_type.lower()
 
-    for event in events:
-        # Date filter: skip events not on the invoice line's service date
-        if service_date:
-            event_date = str(event.get("date") or event.get("timestamp") or "")[:10]
-            if event_date and event_date != service_date:
-                continue
+    def _date_ok(event: dict) -> bool:
+        if not service_date:
+            return True
+        event_date = str(event.get("date") or event.get("timestamp") or "")[:10]
+        if not event_date:
+            return True
+        if event_date == service_date:
+            return True
+        # ±1 day tolerance: handles late-night maneuvers logged on the next calendar day
+        # (e.g. service at 23:55 Jan 10 written in SOF as Jan 11 by port pilot)
+        try:
+            svc_dt = datetime.strptime(service_date, "%Y-%m-%d")
+            evt_dt = datetime.strptime(event_date, "%Y-%m-%d")
+            return abs((evt_dt - svc_dt).days) <= 1
+        except (ValueError, TypeError):
+            return False
 
+    # Pass 1: exact match (prevents "berth" matching "unberth")
+    for event in events:
+        if not _date_ok(event):
+            continue
         event_type = str(event.get("type") or event.get("service_type") or "").lower()
-        # Fuzzy matching: if service description is contained in event type or vice versa
+        if event_type == service_type_lower:
+            return event
+
+    # Pass 2: fuzzy match (service description contained in event type or vice versa)
+    for event in events:
+        if not _date_ok(event):
+            continue
+        event_type = str(event.get("type") or event.get("service_type") or "").lower()
         if service_type_lower in event_type or event_type in service_type_lower:
             return event
 
@@ -491,12 +514,16 @@ def _dispatch_handler(
     pattern = profile.get("calculation_pattern")
     dim_type = profile.get("dimension_type", "")
     
-    # Resolve dimension value (GT, LOA, etc.) from invoice line or vessel info.
-    # Use _parse_vessel_dimension to handle European number format (e.g. "23.403" = 23,403 GT).
-    dim_value = _parse_vessel_dimension(
-        invoice_line.get("loa") or invoice_line.get("gt") or
-        invoice_line.get("grt") or invoice_line.get("trb")
-    )
+    # Resolve dimension value (GT, LOA, GRT, etc.) from invoice line.
+    # Priority order is determined by the port's dimension_type so that a line
+    # carrying both 'loa' and 'gt' uses the correct one for each port.
+    if dim_type in ("GT",):
+        _raw_dim = invoice_line.get("gt") or invoice_line.get("loa")
+    elif dim_type in ("GRT",):
+        _raw_dim = invoice_line.get("grt") or invoice_line.get("trb") or invoice_line.get("gt")
+    else:  # LOA_meters, LOA, or unspecified
+        _raw_dim = invoice_line.get("loa") or invoice_line.get("gt") or invoice_line.get("grt")
+    dim_value = _parse_vessel_dimension(_raw_dim)
 
     # --- bracket_lookup (Ghent, Antwerp, etc.) ---
     if pattern == "bracket_lookup":
@@ -506,6 +533,11 @@ def _dispatch_handler(
         # Zone-specific rate column (e.g. Antwerp: zandvliet_kallo_rate_eur vs antwerp_city_rate_eur)
         rate_col = profile.get("zone_rate_columns", {}).get(zone) if zone else None
         base_rate = lookup_bracket_rate(rates_data, dim_value, rate_col)
+
+        # MXN → USD conversion (Guaymas and similar Mexican bracket ports)
+        fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        if fx_rate > 0:
+            base_rate = round(base_rate / fx_rate, 2)
 
         # Large vessel increment (Ghent)
         lvi_charge = 0.0
@@ -530,13 +562,13 @@ def _dispatch_handler(
                 rate_per_increment=oversize.get("increment_rate_eur", 0)
             )
 
-        # NOTE: Bracket lookup usually returns a rate per service, but sometimes per tug.
-        # Ghent/Antwerp are per tug. The router multiplies by tug_count here.
-        # If other ports use this pattern but are per-service, this needs adjustment in profiles.
-        # Assuming per-tug for now based on OVERTIME_RATES keys.
+        # Multiply by tug_count only for per_tug_per_move billing (Ghent, Antwerp, etc.)
+        # per_service ports (Guaymas, Santo Domingo, most Mexican) bill once per maneuver.
+        billing_basis = profile.get("billing_basis", "per_tug_per_move")
+        tug_multiplier = tug_count if billing_basis == "per_tug_per_move" else 1
         return {
             "base_rate": base_rate,
-            "total_rate": round((base_rate + lvi_charge + oversize_charge) * tug_count, 2),
+            "total_rate": round((base_rate + lvi_charge + oversize_charge) * tug_multiplier, 2),
             "large_vessel_increment": lvi_charge,
             "oversize_supplement": oversize_charge,
             "zone_used": zone,
@@ -561,13 +593,7 @@ def _dispatch_handler(
                 rates_source = profile_rates[first_zone] if first_zone else tariff_data
         else:
             # Rates in tariff file — navigate to the right section/table
-            tariff_matrix = (
-                tariff_data.get("tariff_matrix") or
-                tariff_data.get("tariff_matrix_consolidated") or
-                tariff_data.get("tariff_matrix_general_standard") or
-                tariff_data.get("geographic_sections_and_terminals") or
-                {}
-            )
+            tariff_matrix = tariff_data.get("rate_table") or {}
             if isinstance(tariff_matrix, dict) and profile.get("vessel_type_determines_table"):
                 # First try: zone_key matches a table name directly (e.g. Huelva: "general_traffic")
                 if zone_key and zone_key in tariff_matrix:
@@ -593,8 +619,7 @@ def _dispatch_handler(
     elif pattern == "hp_hourly":
         tug_hp_list = invoice_line.get("tug_hp_list") or [invoice_line.get("tug_hp", 0)]
         duration = _get_duration_hrs(sof_event, invoice_line)
-        matrix = tariff_data.get("tariff_matrix_per_tug") or \
-                 tariff_data.get("tariff_matrix_per_hp_hour", [])
+        matrix = tariff_data.get("rate_table", [])
         hp_result = calculate_hp_hourly(
             grt_value=dim_value,
             tug_hp_list=[float(h) for h in tug_hp_list],
@@ -631,8 +656,8 @@ def _dispatch_handler(
     elif pattern == "per_service_tug_count_specific":
         movement = invoice_line.get("movement_type", "arrival")
         duration = _get_duration_hrs(sof_event, invoice_line)
-        matrix = tariff_data.get("tariff_matrix_per_service_hour", [])
-        return calculate_per_service_tug_count(
+        matrix = tariff_data.get("rate_table", [])
+        result = calculate_per_service_tug_count(
             trb_value=dim_value,
             tug_count=tug_count,
             movement_type=movement,
@@ -642,6 +667,14 @@ def _dispatch_handler(
             bow_thruster_discount=bool(invoice_line.get("bow_thruster_discount")),
             small_vessel_discount=bool(invoice_line.get("small_vessel_discount"))
         )
+        # MXN → USD conversion (same as Guaymas/Manzanillo)
+        fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        if fx_rate > 0:
+            result = dict(result)
+            for key in ("total_charge", "base_rate", "effective_rate", "overtime_charge", "third_tug_charge"):
+                if result.get(key):
+                    result[key] = round(result[key] / fx_rate, 2)
+        return result
 
     # --- bracket_lookup_with_formula (Ceuta) ---
     elif pattern == "bracket_lookup_with_formula_above_threshold":
@@ -669,7 +702,7 @@ def _get_rates_data(tariff_data: dict, zone: Optional[str], route_hint: Optional
     (e.g. Ghent: tariffs → tariff_a_operational_engine → terneuzen_ghent_area_south → [routes]).
     When a zone resolves to a list of route dicts, route_hint selects the right one.
     """
-    tariffs = tariff_data.get("tariffs") or tariff_data.get("tariff_a_matrix")
+    tariffs = tariff_data.get("rate_table")
 
     def _pick_route_from_list(route_list: list) -> dict:
         """Given a list of route dicts, pick by route_hint or fall back to first."""
@@ -707,6 +740,13 @@ def _get_rates_data(tariff_data: dict, zone: Optional[str], route_hint: Optional
                         return _pick_route_from_list(val) if _is_route_list(val) else val
                     return val
 
+        # Level 3: sections array where each item has an "id" field (Dordrecht/Moerdijk)
+        sections = tariffs.get("sections")
+        if isinstance(sections, list):
+            for section in sections:
+                if isinstance(section, dict) and section.get("id", "").lower() == zone_lower:
+                    return section.get("rates", {})
+
         # Fallback: use first list found anywhere in tariffs
         for table_val in tariffs.values():
             if isinstance(table_val, list) and table_val:
@@ -726,8 +766,7 @@ def _get_rates_data(tariff_data: dict, zone: Optional[str], route_hint: Optional
     # Fallback: scan tariff_data for any list of bracket-like dicts.
     # Checks top level first (e.g. Antwerp: tariff_a_seagoing_vessels_operational_engine),
     # then one level deep (e.g. Rostock: tariff_a_base_rates.brackets).
-    BRACKET_KEYS = {'min_loa_m', 'min_loa', 'min_gt', 'up_to_gt', 'gt_range', 'min_grt',
-                    'max_loa_m', 'max_loa', 'max_gt', 'max_grt'}
+    BRACKET_KEYS = {'dimension_range', 'dimension_min', 'dimension_max'}
     for val in tariff_data.values():
         if isinstance(val, list) and val and isinstance(val[0], dict):
             if BRACKET_KEYS & set(val[0].keys()):
@@ -739,7 +778,7 @@ def _get_rates_data(tariff_data: dict, zone: Optional[str], route_hint: Optional
                     if BRACKET_KEYS & set(sub_val[0].keys()):
                         return sub_val
 
-    return tariff_data.get("tariff_matrix") or tariff_data.get("tariff_matrix_per_tug") or {}
+    return {}
 
 
 # ---------------------------------------------------------------------------
@@ -789,10 +828,14 @@ def route(
     # Resolve Vessel Info from effective SOF
     _raw_vessel = effective_sof.get("vessel") or effective_sof.get("vessel_info") or {}
     vessel_info = _raw_vessel if isinstance(_raw_vessel, dict) else {}
-    dim_value = _parse_vessel_dimension(
-        vessel_info.get("loa") or vessel_info.get("gt") or
-        vessel_info.get("grt") or vessel_info.get("trb")
-    )
+    # Dim-type-aware: read the correct dimension key from the SOF vessel info
+    if dim_type in ("GT",):
+        _sof_raw_dim = vessel_info.get("gt") or vessel_info.get("loa")
+    elif dim_type in ("GRT",):
+        _sof_raw_dim = vessel_info.get("grt") or vessel_info.get("trb") or vessel_info.get("gt")
+    else:  # LOA_meters, LOA, or unspecified
+        _sof_raw_dim = vessel_info.get("loa") or vessel_info.get("gt") or vessel_info.get("grt")
+    dim_value = _parse_vessel_dimension(_sof_raw_dim)
     if not vessel_name:
         vessel_name = vessel_info.get("name", "") or (
             _raw_vessel if isinstance(_raw_vessel, str) else ""
@@ -810,10 +853,14 @@ def route(
         # Inject vessel dimension into invoice_line if not present (for handlers that expect it there)
         # If the invoice line already carries a GT (injected by caller), use that and note any SOF mismatch.
         # _parse_vessel_dimension handles European format: "23.403" → 23403 GT.
-        invoice_dim_value = _parse_vessel_dimension(
-            invoice_line.get("loa") or invoice_line.get("gt") or
-            invoice_line.get("grt") or invoice_line.get("trb")
-        )
+        # Use dim_type-aware priority so a line with both loa and gt picks the right one.
+        if dim_type in ("GT",):
+            _inv_raw = invoice_line.get("gt") or invoice_line.get("loa")
+        elif dim_type in ("GRT",):
+            _inv_raw = invoice_line.get("grt") or invoice_line.get("trb") or invoice_line.get("gt")
+        else:
+            _inv_raw = invoice_line.get("loa") or invoice_line.get("gt") or invoice_line.get("grt")
+        invoice_dim_value = _parse_vessel_dimension(_inv_raw)
         if invoice_dim_value:
             # Use the invoice's own dimension value for calculation
             dim_value_for_line = invoice_dim_value
@@ -937,7 +984,17 @@ def route(
                     )
                     ot_kwargs["base_rate"] = base_for_overtime
 
-                    if "overtime_surcharge_pct" in profile:
+                    if overtime_pattern == "prorata_10min_rounding":
+                        # prorata_10min_rounding uses first_hour_rate_per_tug + tug_count
+                        ot_kwargs.pop("base_rate", None)
+                        ot_kwargs["first_hour_rate_per_tug"] = base_for_overtime
+                        ot_kwargs["tug_count"] = tug_count
+                    elif overtime_pattern == "fixed_hourly_amount":
+                        # fixed_hourly_amount uses a fixed rate (not % of base) + tug_count
+                        ot_kwargs.pop("base_rate", None)
+                        ot_kwargs["hourly_rate"] = float(profile.get("overtime_hourly_rate", 1560.89))
+                        ot_kwargs["tug_count"] = tug_count
+                    elif "overtime_surcharge_pct" in profile:
                         ot_kwargs["surcharge_pct"] = profile["overtime_surcharge_pct"]
                     elif overtime_pattern == "pct_surcharge_on_assist_rate":
                         ot_kwargs["surcharge_pct"] = 30.0

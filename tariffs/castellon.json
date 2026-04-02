@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Castellón (PortCastelló)",
     "country": "Spain",
@@ -37,34 +38,35 @@
     "calculation_formula": "Total Service Charge = Fixed Part + (Variable Part * Vessel GT)",
     "billing_restrictions": "Surcharges for night-time operations or holidays are strictly prohibited per Article 113.4 of TRLPEMM"
   },
+  "rate_table": {
   "general_maximum_tariff_zone_i": {
     "vessel_type_application": "General Vessels (Non-Tankers)",
     "geographic_application": "Zone I",
     "rates": [
       {
-        "gt_range": "1 to 5,000",
-        "fixed_part_eur": 1000.0,
-        "variable_part_eur_per_gt": 0.0
+        "dimension_range": "1 to 5,000",
+        "fixed_part": 1000.0,
+        "variable_part": 0.0
       },
       {
-        "gt_range": "5,001 to 10,000",
-        "fixed_part_eur": 0.0,
-        "variable_part_eur_per_gt": 0.225
+        "dimension_range": "5,001 to 10,000",
+        "fixed_part": 0.0,
+        "variable_part": 0.225
       },
       {
-        "gt_range": "10,001 to 25,000",
-        "fixed_part_eur": 350.0,
-        "variable_part_eur_per_gt": 0.19
+        "dimension_range": "10,001 to 25,000",
+        "fixed_part": 350.0,
+        "variable_part": 0.19
       },
       {
-        "gt_range": "25,001 to 50,000",
-        "fixed_part_eur": 2000.0,
-        "variable_part_eur_per_gt": 0.1255
+        "dimension_range": "25,001 to 50,000",
+        "fixed_part": 2000.0,
+        "variable_part": 0.1255
       },
       {
-        "gt_range": "Over 50,001",
-        "fixed_part_eur": 2225.0,
-        "variable_part_eur_per_gt": 0.1255
+        "dimension_range": "Over 50,001",
+        "fixed_part": 2225.0,
+        "variable_part": 0.1255
       }
     ]
   },
@@ -73,29 +75,29 @@
     "geographic_application": "Zone I",
     "rates": [
       {
-        "gt_range": "1 to 5,000",
-        "fixed_part_eur": 1300.0,
-        "variable_part_eur_per_gt": 0.0
+        "dimension_range": "1 to 5,000",
+        "fixed_part": 1300.0,
+        "variable_part": 0.0
       },
       {
-        "gt_range": "5,001 to 10,000",
-        "fixed_part_eur": -1975.0,
-        "variable_part_eur_per_gt": 0.6998
+        "dimension_range": "5,001 to 10,000",
+        "fixed_part": -1975.0,
+        "variable_part": 0.6998
       },
       {
-        "gt_range": "10,001 to 25,000",
-        "fixed_part_eur": 1525.0,
-        "variable_part_eur_per_gt": 0.35
+        "dimension_range": "10,001 to 25,000",
+        "fixed_part": 1525.0,
+        "variable_part": 0.35
       },
       {
-        "gt_range": "25,001 to 50,000",
-        "fixed_part_eur": 1525.0,
-        "variable_part_eur_per_gt": 0.375
+        "dimension_range": "25,001 to 50,000",
+        "fixed_part": 1525.0,
+        "variable_part": 0.375
       },
       {
-        "gt_range": "Over 50,001",
-        "fixed_part_eur": 1525.0,
-        "variable_part_eur_per_gt": 0.5
+        "dimension_range": "Over 50,001",
+        "fixed_part": 1525.0,
+        "variable_part": 0.5
       }
     ]
   },
@@ -104,11 +106,12 @@
     "geographic_application": "Zone II (Campo de Boyas)",
     "rates": [
       {
-        "gt_range": "All tonnage ranges",
-        "fixed_part_eur": 0.0,
-        "variable_part_eur_per_gt": 0.5
+        "dimension_range": "All tonnage ranges",
+        "fixed_part": 0.0,
+        "variable_part": 0.5
       }
     ]
+  }
   },
   "surcharges_and_multipliers": [
     {

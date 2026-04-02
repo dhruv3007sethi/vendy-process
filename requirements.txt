@@ -1,8 +1,7 @@
 pdfplumber
-pytesseract
-pillow
+pymupdf
+mistralai
 chromadb
 sentence-transformers
 python-dotenv
 streamlit
-pymupdf

@@ -1,0 +1,44 @@
+{
+  "invoice_reference": "GYB-5170040583/5170040584",
+  "vendor": "Compania Maritima del Pacifico, SA de CV (Boluda Mexico)",
+  "vessel_name": "STI MARVEL",
+  "service_date": "2025-11-17",
+  "currency": "USD",
+  "fx_rate_mxn_usd": 18.2805,
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "Arribo GYB 5170040583 - 17.11.2025 - 2 tugs",
+      "date": "2025-11-17",
+      "amount": 7640.03,
+      "grt": 29991,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 18.2805,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "Zarpe GYB 5170040584 - 17.11.2025 - 2 tugs",
+      "date": "2025-11-17",
+      "amount": 5093.35,
+      "grt": 29991,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 18.2805,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Contract Discount - Berth",
+      "description": "3% contract discount on berth service",
+      "date": "2025-11-17",
+      "amount": -229.21,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "Contract Discount - Unberth",
+      "description": "3% contract discount on unberth service",
+      "date": "2025-11-17",
+      "amount": -152.80,
+      "is_adjustment": true
+    }
+  ]
+}

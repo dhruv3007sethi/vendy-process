@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Cádiz Bay",
     "country": "Spain",
@@ -22,37 +23,37 @@
       "navantia_facilities": 180
     }
   },
-  "geographic_sections_and_terminals": {
+  "rate_table": {
     "cadiz_dock": {
       "description": "Berth and unberth services at Cádiz Dock (Dársena de Cádiz)",
-      "tariffs": [
+      "rates": [
         {
-          "gt_range": "0 - 5,000",
+          "dimension_range": "0 - 5,000",
           "vp": 0,
           "fp": 1423.54
         },
         {
-          "gt_range": "5,001 - 10,000",
+          "dimension_range": "5,001 - 10,000",
           "vp": 0,
           "fp": 1423.54
         },
         {
-          "gt_range": "10,001 - 25,000",
+          "dimension_range": "10,001 - 25,000",
           "vp": 0.1377,
           "fp": 45.92
         },
         {
-          "gt_range": "25,001 - 50,000",
+          "dimension_range": "25,001 - 50,000",
           "vp": 0.0919,
           "fp": 1193.93
         },
         {
-          "gt_range": "50,001 - 100,000",
+          "dimension_range": "50,001 - 100,000",
           "vp": 0.0689,
           "fp": 2341.94
         },
         {
-          "gt_range": "100,001 - 1,000,000",
+          "dimension_range": "100,001 - 1,000,000",
           "vp": 0.0459,
           "fp": 4637.97
         }
@@ -60,34 +61,34 @@
     },
     "other_docks_excluding_santa_maria": {
       "description": "Berth and unberth services at Other Docks in Cádiz Bay (excluding Puerto de Santa María)",
-      "tariffs": [
+      "rates": [
         {
-          "gt_range": "0 - 5,000",
+          "dimension_range": "0 - 5,000",
           "vp": 0,
           "fp": 1102.09
         },
         {
-          "gt_range": "5,001 - 10,000",
+          "dimension_range": "5,001 - 10,000",
           "vp": 0,
           "fp": 1653.14
         },
         {
-          "gt_range": "10,001 - 25,000",
+          "dimension_range": "10,001 - 25,000",
           "vp": 0.3306,
           "fp": -596.96
         },
         {
-          "gt_range": "25,001 - 50,000",
+          "dimension_range": "25,001 - 50,000",
           "vp": 0.2985,
           "fp": 206.64
         },
         {
-          "gt_range": "50,001 - 100,000",
+          "dimension_range": "50,001 - 100,000",
           "vp": 0.2755,
           "fp": 1354.65
         },
         {
-          "gt_range": "100,001 - 1,000,000",
+          "dimension_range": "100,001 - 1,000,000",
           "vp": 0.2526,
           "fp": 3650.68
         }
@@ -95,34 +96,34 @@
     },
     "puerto_de_santa_maria": {
       "description": "Berth and unberth services at Puerto de Santa María",
-      "tariffs": [
+      "rates": [
         {
-          "gt_range": "1 - 5,000",
+          "dimension_range": "1 - 5,000",
           "vp": 0,
           "fp": 1102.09
         },
         {
-          "gt_range": "5,001 - 10,000",
+          "dimension_range": "5,001 - 10,000",
           "vp": 0,
           "fp": 1836.82
         },
         {
-          "gt_range": "10,001 - 25,000",
+          "dimension_range": "10,001 - 25,000",
           "vp": 0.1837,
           "fp": 0.0
         },
         {
-          "gt_range": "25,001 - 50,000",
+          "dimension_range": "25,001 - 50,000",
           "vp": 0.1377,
           "fp": 1148.02
         },
         {
-          "gt_range": "50,001 - 100,000",
+          "dimension_range": "50,001 - 100,000",
           "vp": 0.0919,
           "fp": 3444.04
         },
         {
-          "gt_range": "100,001+",
+          "dimension_range": "100,001+",
           "vp": 0.0459,
           "fp": 8036.09
         }
@@ -132,34 +133,34 @@
       "description": "Berth and unberth services at Navantia and Dragados Off-Shore Facilities",
       "terminal_type": "Shipyard / Off-Shore Repair and Construction",
       "max_duration_minutes": 180,
-      "tariffs": [
+      "rates": [
         {
-          "gt_range": "0 - 5,000",
+          "dimension_range": "0 - 5,000",
           "vp": 0,
           "fp": 2296.02
         },
         {
-          "gt_range": "5,001 - 10,000",
+          "dimension_range": "5,001 - 10,000",
           "vp": 0,
           "fp": 3673.64
         },
         {
-          "gt_range": "10,001 - 25,000",
+          "dimension_range": "10,001 - 25,000",
           "vp": 0.4592,
           "fp": 918.41
         },
         {
-          "gt_range": "25,001 - 50,000",
+          "dimension_range": "25,001 - 50,000",
           "vp": 0.372,
           "fp": 3099.64
         },
         {
-          "gt_range": "50,001 - 100,000",
+          "dimension_range": "50,001 - 100,000",
           "vp": 0.3508,
           "fp": 4270.6
         },
         {
-          "gt_range": "100,001 - 1,000,000",
+          "dimension_range": "100,001 - 1,000,000",
           "vp": 0.2296,
           "fp": 18253.4
         }

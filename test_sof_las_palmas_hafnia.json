@@ -1,0 +1,29 @@
+{
+  "vessel": {
+    "name": "HAFNIA SOYA",
+    "imo": "9791652",
+    "gt": 24120,
+    "loa": 184.0
+  },
+  "port": "Las_Palmas",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2026-02-24",
+      "time": "04:54",
+      "tug_count": 2,
+      "duration_hrs": 1.3,
+      "notes": "Tugs made fast FWD and AFT 04:54. All fast/Pilot off/Tugs clear 06:12. Duration 78 min (18 min OT). VB TAMARAN + VB BANDAMA."
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2026-02-26",
+      "time": "08:48",
+      "tug_count": 2,
+      "duration_hrs": 0.4,
+      "notes": "Tugs made fast 08:48. Tugs clear 09:12. Duration 24 min — within 60 min standard."
+    }
+  ]
+}

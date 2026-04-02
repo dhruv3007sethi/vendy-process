@@ -235,19 +235,19 @@ result = route(..., invoice_lines=service_lines, ...)
 | Ceuta | ✅ TESTED | bracket_lookup_with_formula | T0/T±1/T±2 tables; displacement fee; bay area surcharge |
 | Cadiz Bay | ✅ TESTED | fixed_plus_variable | geographic_sections_and_terminals zone structure |
 | Tenerife/La Palma | ✅ TESTED | fixed_plus_variable | tariff_matrix_consolidated; zone = nested {fixed, variable} dict |
-| Dordrecht/Moerdijk | ⏳ pending | bracket_lookup | |
+| Dordrecht/Moerdijk | ✅ TESTED | bracket_lookup | MISMATCH −9.09% (2026 tariff on file; service July 2025) |
 | Santo Domingo/Haina | ⏳ pending | bracket_lookup | |
 | Brake | ⏳ pending | bracket_lookup | |
 | Altamira | ⏳ pending | bracket_lookup | |
 | Coatzacoalcos | ⏳ pending | hp_hourly | |
-| Ensenada | ⏳ pending | per_service_tug_count_specific | |
+| Ensenada | ✅ TESTED | per_service_tug_count_specific | AUTO_APPROVED; MXN→USD FX conversion added to dispatch; GRT 4,000 departure 1 tug |
 | Guaymas | ⏳ pending | bracket_lookup | |
 | Manzanillo | ⏳ pending | bracket_lookup | |
 | Salina Cruz | ⏳ pending | bracket_lookup | |
-| Tampico | ⏳ pending | bracket_lookup | |
+| Tampico | ✅ TESTED | bracket_lookup | MISMATCH −10.59% (Apr 2025 tariff on file; invoice Feb 2025 pre-April rates) |
 | Panama | ⏳ pending | hourly_with_minimum | |
 | Castellon | ⏳ pending | fixed_plus_variable | |
-| Las Palmas | ⏳ pending | fixed_plus_variable | |
+| Las Palmas | ✅ TESTED | fixed_plus_variable | fixed_hourly_amount OT handler; T+1 tariff +0.61% → AUTO_APPROVED |
 
 Run regression check after any engine change:
 ```bash

@@ -36,6 +36,7 @@ def _match_trb_bracket(tariff_matrix: List[Dict], trb_value: float) -> Optional[
     """
     for row in tariff_matrix:
         text = str(
+            row.get('dimension_range') or
             row.get('trb_range') or row.get('grt_range') or row.get('bracket') or ''
         ).lower().replace(',', '').strip()
 

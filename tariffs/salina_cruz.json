@@ -1,4 +1,5 @@
 {
+  "currency": "USD",
   "port_metadata": {
     "port_name": "Salina Cruz",
     "country": "Mexico",
@@ -26,35 +27,35 @@
     "time_measurement_start": "Starts when lines are exchanged or when the tug is ready at the agreed location",
     "time_measurement_end": "Ends when lines are cast off or as indicated by the pilot"
   },
-  "tariff_matrix_per_vessel": [
+  "rate_table": [
     {
-      "trb_range": "0 to 2,500",
-      "rate_usd": 25995.0,
+      "dimension_range": "0 to 2,500",
+      "base_rate": 25995.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     },
     {
-      "trb_range": "2,501 to 8,500",
-      "rate_usd": 43126.0,
+      "dimension_range": "2,501 to 8,500",
+      "base_rate": 43126.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     },
     {
-      "trb_range": "8,501 to 10,500",
-      "rate_usd": 59640.0,
+      "dimension_range": "8,501 to 10,500",
+      "base_rate": 59640.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     },
     {
-      "trb_range": "10,501 to 15,000",
-      "rate_usd": 79519.0,
+      "dimension_range": "10,501 to 15,000",
+      "base_rate": 79519.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     },
     {
-      "trb_range": "15,001 to 25,000",
-      "rate_usd": 110107.0,
+      "dimension_range": "15,001 to 25,000",
+      "base_rate": 110107.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     },
     {
-      "trb_range": "Over 25,001",
-      "rate_usd": 113162.0,
+      "dimension_range": "Over 25,001",
+      "base_rate": 113162.0,
       "definition": "This value serves as the 'basic_quota' and 'relevant_quota' for vessels in this bracket"
     }
   ],

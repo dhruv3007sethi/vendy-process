@@ -31,46 +31,46 @@
     },
     "technical_criteria_reference": "Rates apply per maneuver based on Technical Criteria for the Provision of Port Towage Services issued by SEMAR."
   },
-  "tariff_matrix_per_maneuver": [
+  "rate_table": [
     {
-      "grt_range": "Under 3,000 Tons",
-      "basic_quota_usd": 29245.0
+      "dimension_range": "Under 3,000 Tons",
+      "base_rate": 29245.0
     },
     {
-      "grt_range": "3,001 to 5,000 Tons",
-      "basic_quota_usd": 38296.0
+      "dimension_range": "3,001 to 5,000 Tons",
+      "base_rate": 38296.0
     },
     {
-      "grt_range": "5,001 to 7,500 Tons",
-      "basic_quota_usd": 49608.0
+      "dimension_range": "5,001 to 7,500 Tons",
+      "base_rate": 49608.0
     },
     {
-      "grt_range": "7,501 to 9,000 Tons",
-      "basic_quota_usd": 58665.0
+      "dimension_range": "7,501 to 9,000 Tons",
+      "base_rate": 58665.0
     },
     {
-      "grt_range": "9,001 to 11,000 Tons",
-      "basic_quota_usd": 79026.0
+      "dimension_range": "9,001 to 11,000 Tons",
+      "base_rate": 79026.0
     },
     {
-      "grt_range": "11,001 to 13,000 Tons",
-      "basic_quota_usd": 81295.0
+      "dimension_range": "11,001 to 13,000 Tons",
+      "base_rate": 81295.0
     },
     {
-      "grt_range": "13,001 to 15,000 Tons",
-      "basic_quota_usd": 83556.0
+      "dimension_range": "13,001 to 15,000 Tons",
+      "base_rate": 83556.0
     },
     {
-      "grt_range": "15,001 to 17,000 Tons",
-      "basic_quota_usd": 85816.0
+      "dimension_range": "15,001 to 17,000 Tons",
+      "base_rate": 85816.0
     },
     {
-      "grt_range": "17,001 to 20,000 Tons",
-      "basic_quota_usd": 88083.0
+      "dimension_range": "17,001 to 20,000 Tons",
+      "base_rate": 88083.0
     },
     {
-      "grt_range": "Over 20,000 Tons",
-      "basic_quota_usd": 88607.0
+      "dimension_range": "Over 20,000 Tons",
+      "base_rate": 88607.0
     }
   ],
   "surcharges_discounts_and_multipliers": [
@@ -131,6 +131,7 @@
       "note": "Not subject to fixed rates; subject to negotiation based on international maritime customs"
     }
   ],
+  "currency": "USD",
   "administrative_subtext": {
     "notice_period": "Service must be requested in writing at least 3 hours in advance during provider office hours",
     "payment_requirement": "Users must cover the estimated maneuver amount at the time of request; final adjustment made upon invoice presentation",

@@ -1,0 +1,18 @@
+{
+  "invoice_reference": "ENS-2025-0815",
+  "vendor": "Compañía Marítima del Pacífico, S.A. de C.V.",
+  "vessel_name": "PACIFIC GLORY",
+  "service_date": "2025-08-15",
+  "line_items": [
+    {
+      "service_type": "Unberth",
+      "movement_type": "departure",
+      "description": "Servicio de Desatraque - PACIFIC GLORY - Puerto de Ensenada",
+      "date": "2025-08-15",
+      "amount": 2481.49,
+      "grt": 4000,
+      "tug_count": 1,
+      "fx_rate_mxn_usd": 17.50
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "vessel": {
+    "name": "DING HENG 23",
+    "imo": "9841421",
+    "loa": 120.0,
+    "gt": 6205
+  },
+  "port": "Moerdijk",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2025-07-25",
+      "first_line_ashore": "12:36",
+      "all_fast_time": "12:54",
+      "tug_count": 1,
+      "berth_location": "Shell Terminal Moerdijk",
+      "duration_mins": 18
+    }
+  ]
+}

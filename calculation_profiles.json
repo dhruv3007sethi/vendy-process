@@ -247,6 +247,7 @@
       "zone_determines_rate": false,
       "tug_count_source": "invoice",
       "overtime_handler": "25pct_of_base_per_15min_after_1hr",
+      "overtime_surcharge_pct": 25,
       "third_tug_surcharge": "50pct_of_basic_quota",
       "bow_thruster_discount": "10pct_if_single_tug_and_bow_thruster_operational",
       "small_vessel_discount": "70pct_for_vessels_under_3000_TRB",
@@ -260,6 +261,7 @@
       "zone_determines_rate": false,
       "tug_count_source": "invoice",
       "overtime_handler": "25pct_of_base_per_15min_after_1hr",
+      "overtime_surcharge_pct": 25,
       "third_tug_surcharge": "50pct_of_basic_quota",
       "bow_thruster_discount": "10pct_if_single_tug_and_bow_thruster_operational",
       "small_vessel_discount": "70pct_for_vessels_under_3000_GRT",
@@ -500,14 +502,10 @@
       "formula": "Rate = Fixed + (Variable * GT)",
       "tug_count_source": "invoice",
       "standard_duration_mins": 60,
-      "overtime_handler": {
-        "standard_tug": "1560.89_per_hour_or_fraction",
-        "small_tug": "383.38_per_hour_or_fraction",
-        "small_tug_criteria": "length_under_20m_and_draft_3m_or_less",
-        "tug_spec_source": "invoice_face_value_unless_SOF_contradicts"
-      },
+      "overtime_handler": "fixed_hourly_amount_per_tug",
+      "overtime_hourly_rate": 1560.89,
       "requires_human_review_for": [],
-      "notes": "Overtime rate is a fixed hourly amount, not a percentage of base rate — requires separate handler. Small tug surcharge also applies as additional fixed fee per hour"
+      "notes": "Overtime rate is a fixed hourly amount, not a percentage of base rate. Standard tug EUR 1560.89/hr (or fraction). Small tug EUR 383.38/hr (not yet wired)."
     },
     "Algeciras": {
       "dimension_type": "GT",

@@ -30,42 +30,42 @@
       "overtime_surcharge_basis": "25% of the basic quota per 15-minute increment"
     }
   },
-  "tariff_matrix_per_service_hour": [
+  "rate_table": [
     {
-      "trb_range": "Up to 5,000",
-      "basic_quota_usd": 27743.0
+      "dimension_range": "Up to 5,000",
+      "base_rate": 27743.0
     },
     {
-      "trb_range": "5,001 to 8,500",
-      "basic_quota_usd": 27760.0
+      "dimension_range": "5,001 to 8,500",
+      "base_rate": 27760.0
     },
     {
-      "trb_range": "8,501 to 10,000",
-      "basic_quota_usd": 59064.0
+      "dimension_range": "8,501 to 10,000",
+      "base_rate": 59064.0
     },
     {
-      "trb_range": "10,001 to 12,500",
-      "basic_quota_usd": 80414.0
+      "dimension_range": "10,001 to 12,500",
+      "base_rate": 80414.0
     },
     {
-      "trb_range": "12,501 to 17,500",
-      "basic_quota_usd": 85356.0
+      "dimension_range": "12,501 to 17,500",
+      "base_rate": 85356.0
     },
     {
-      "trb_range": "17,501 to 25,000",
-      "basic_quota_usd": 88651.0
+      "dimension_range": "17,501 to 25,000",
+      "base_rate": 88651.0
     },
     {
-      "trb_range": "25,001 to 30,000",
-      "basic_quota_usd": 93109.0
+      "dimension_range": "25,001 to 30,000",
+      "base_rate": 93109.0
     },
     {
-      "trb_range": "30,001 to 35,000",
-      "basic_quota_usd": 97564.0
+      "dimension_range": "30,001 to 35,000",
+      "base_rate": 97564.0
     },
     {
-      "trb_range": "Over 35,001",
-      "basic_quota_usd": 102027.0
+      "dimension_range": "Over 35,001",
+      "base_rate": 102027.0
     }
   ],
   "surcharges_discounts_and_multipliers": [
@@ -139,6 +139,7 @@
       "note": "Salvage, firefighting, and special services are subject to negotiation based on international maritime customs"
     }
   ],
+  "currency": "USD",
   "administrative_subtext": {
     "notice_period": "Service must be requested in writing at least 3 hours in advance during business hours",
     "payment_requirement": "Users must cover the estimated service amount at the time of request; final adjustment made upon invoice",

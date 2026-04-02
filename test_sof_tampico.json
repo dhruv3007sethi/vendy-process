@@ -1,0 +1,29 @@
+{
+  "vessel": {
+    "name": "STI LA BOCA",
+    "imo": "9791652",
+    "grt": 29738,
+    "loa": 183.0
+  },
+  "port": "Tampico",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2025-02-06",
+      "time": "19:38",
+      "tug_count": 2,
+      "duration_hrs": 1.617,
+      "notes": "VB CARIBE (S/N) 19:38-21:15 (97 min). VB SONORA (R040006597) 19:40-21:15 (95 min). Longest tug: 97 min. OT: 37 min above 1hr std -> 3 x 15-min increments -> 1.75 hrs billed. Dock: TMP-Tampico-Madero 4."
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2025-02-15",
+      "time": "12:00",
+      "tug_count": 2,
+      "duration_hrs": 0.667,
+      "notes": "VB SONORA 12:00-12:40 (40 min). VB CARIBE 12:15-12:40 (25 min). Longest tug: 40 min < 60 min std -> no OT -> 1.00 hr billed. Vessel berthed 12:18-12:24 (re-positioning before departure). COSP 13:00."
+    }
+  ]
+}

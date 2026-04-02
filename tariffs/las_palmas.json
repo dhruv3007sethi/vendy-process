@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_names": [
       "Las Palmas",
@@ -20,104 +21,104 @@
       "note": "Considered usual duration for tugboats with power equal to or greater than 2500 hp."
     }
   },
-  "tariff_matrix_general_standard": [
+  "rate_table": [
     {
-      "up_to_gt": 500,
+      "dimension_max":500,
       "fixed_part": 184.07,
       "variable_part": 0.03491916
     },
     {
-      "up_to_gt": 1500,
+      "dimension_max":1500,
       "fixed_part": 219.12,
       "variable_part": 0.05869723
     },
     {
-      "up_to_gt": 3000,
+      "dimension_max":3000,
       "fixed_part": 271.71,
       "variable_part": 0.06118721
     },
     {
-      "up_to_gt": 5000,
+      "dimension_max":5000,
       "fixed_part": 306.77,
       "variable_part": 0.06302759
     },
     {
-      "up_to_gt": 10000,
+      "dimension_max":10000,
       "fixed_part": 543.42,
       "variable_part": 0.06443042
     },
     {
-      "up_to_gt": 15000,
+      "dimension_max":15000,
       "fixed_part": 745.02,
       "variable_part": 0.07884829
     },
     {
-      "up_to_gt": 20000,
+      "dimension_max":20000,
       "fixed_part": 683.66,
       "variable_part": 0.08313451
     },
     {
-      "up_to_gt": 25000,
+      "dimension_max":25000,
       "fixed_part": 955.36,
       "variable_part": 0.10181173
     },
     {
-      "up_to_gt": 30000,
+      "dimension_max":30000,
       "fixed_part": 834.42,
       "variable_part": 0.10886714
     },
     {
-      "up_to_gt": 35000,
+      "dimension_max":35000,
       "fixed_part": 845.81,
       "variable_part": 0.10856969
     },
     {
-      "up_to_gt": 40000,
+      "dimension_max":40000,
       "fixed_part": 972.89,
       "variable_part": 0.1148805
     },
     {
-      "up_to_gt": 45000,
+      "dimension_max":45000,
       "fixed_part": 850.19,
       "variable_part": 0.11795675
     },
     {
-      "up_to_gt": 50000,
+      "dimension_max":50000,
       "fixed_part": 894.01,
       "variable_part": 0.11821103
     },
     {
-      "up_to_gt": 55000,
+      "dimension_max":55000,
       "fixed_part": 832.66,
       "variable_part": 0.12093705
     },
     {
-      "up_to_gt": 60000,
+      "dimension_max":60000,
       "fixed_part": 876.48,
       "variable_part": 0.12122587
     },
     {
-      "up_to_gt": 65000,
+      "dimension_max":65000,
       "fixed_part": 894.01,
       "variable_part": 0.1236717
     },
     {
-      "up_to_gt": 70000,
+      "dimension_max":70000,
       "fixed_part": 964.13,
       "variable_part": 0.13136712
     },
     {
-      "up_to_gt": 75000,
+      "dimension_max":75000,
       "fixed_part": 920.31,
       "variable_part": 0.13486556
     },
     {
-      "up_to_gt": 80000,
+      "dimension_max":80000,
       "fixed_part": 937.83,
       "variable_part": 0.13486556
     },
     {
-      "up_to_gt": 999999,
+      "dimension_max":999999,
       "fixed_part": 946.6,
       "variable_part": 0.13486556
     }

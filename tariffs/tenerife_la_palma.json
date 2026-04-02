@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Santa Cruz de Tenerife and Santa Cruz de la Palma",
     "country": "Spain",
@@ -59,9 +60,9 @@
       ]
     }
   },
-  "tariff_matrix_consolidated": [
+  "rate_table": [
     {
-      "gt_range": "0 to 1,000",
+      "dimension_range":"0 to 1,000",
       "la_hodura_oil_terminal": {
         "fixed": 573.3,
         "variable": 0.00242
@@ -84,7 +85,7 @@
       }
     },
     {
-      "gt_range": "1,001 to 5,000",
+      "dimension_range":"1,001 to 5,000",
       "la_hodura_oil_terminal": {
         "fixed": 573.3,
         "variable": 0.00242
@@ -107,7 +108,7 @@
       }
     },
     {
-      "gt_range": "5,001 to 7,000",
+      "dimension_range":"5,001 to 7,000",
       "la_hodura_oil_terminal": {
         "fixed": 829.34,
         "variable": 0.029
@@ -130,7 +131,7 @@
       }
     },
     {
-      "gt_range": "7,001 to 10,000",
+      "dimension_range":"7,001 to 10,000",
       "la_hodura_oil_terminal": {
         "fixed": 1333.61,
         "variable": 0.0292
@@ -153,7 +154,7 @@
       }
     },
     {
-      "gt_range": "10,001 to 13,000",
+      "dimension_range":"10,001 to 13,000",
       "la_hodura_oil_terminal": {
         "fixed": 2062.77,
         "variable": 0.07403
@@ -176,7 +177,7 @@
       }
     },
     {
-      "gt_range": "13,001 to 15,000",
+      "dimension_range":"13,001 to 15,000",
       "la_hodura_oil_terminal": {
         "fixed": 3126.99,
         "variable": 0.13294
@@ -199,7 +200,7 @@
       }
     },
     {
-      "gt_range": "15,001 to 19,000",
+      "dimension_range":"15,001 to 19,000",
       "la_hodura_oil_terminal": {
         "fixed": 3564.48,
         "variable": 0.12794
@@ -222,7 +223,7 @@
       }
     },
     {
-      "gt_range": "19,001 to 25,000",
+      "dimension_range":"19,001 to 25,000",
       "la_hodura_oil_terminal": {
         "fixed": 3564.48,
         "variable": 0.15317
@@ -245,7 +246,7 @@
       }
     },
     {
-      "gt_range": "25,001 to 30,000",
+      "dimension_range":"25,001 to 30,000",
       "la_hodura_oil_terminal": {
         "fixed": 3564.48,
         "variable": 0.15317
@@ -268,7 +269,7 @@
       }
     },
     {
-      "gt_range": "30,001 to 50,000",
+      "dimension_range":"30,001 to 50,000",
       "la_hodura_oil_terminal": {
         "fixed": 3564.48,
         "variable": 0.18173
@@ -291,7 +292,7 @@
       }
     },
     {
-      "gt_range": "50,001 to 60,000",
+      "dimension_range":"50,001 to 60,000",
       "la_hodura_oil_terminal": {
         "fixed": 5788.66,
         "variable": 0.34473
@@ -314,7 +315,7 @@
       }
     },
     {
-      "gt_range": "60,001 to 75,000",
+      "dimension_range":"60,001 to 75,000",
       "la_hodura_oil_terminal": {
         "fixed": 8853.31,
         "variable": 0.35206
@@ -337,7 +338,7 @@
       }
     },
     {
-      "gt_range": "75,001 to 100,000",
+      "dimension_range":"75,001 to 100,000",
       "la_hodura_oil_terminal": {
         "fixed": 10478.58,
         "variable": 0.35309
@@ -360,7 +361,7 @@
       }
     },
     {
-      "gt_range": "Over 100,001",
+      "dimension_range":"Over 100,001",
       "la_hodura_oil_terminal": {
         "fixed": 10478.58,
         "variable": 0.35309

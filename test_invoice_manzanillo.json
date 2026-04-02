@@ -1,0 +1,50 @@
+{
+  "invoice_reference": "MAN5180044603",
+  "vendor": "Compania Maritima Mexicana, S.A. de C.V. (Boluda Mexico)",
+  "vessel_name": "SILVER VALERIE",
+  "service_date": "2025-12-20",
+  "currency": "USD",
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "1-MAN5180044603 Berthing operation - 20.12.2025 - 2 tugs (CMM MAGUEY + TMM COLIMA)",
+      "date": "2025-12-20",
+      "amount": 4928.32,
+      "grt": 29460,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 17.9792,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "2-MAN5180044603 Unberthing operation - 21.12.2025 - 2 tugs (CMM MAGUEY + CMM CENTENARIO)",
+      "date": "2025-12-21",
+      "amount": 4928.32,
+      "grt": 29460,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 17.9792,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Contract Discount - Berth",
+      "description": "10% contract discount on berthing service",
+      "date": "2025-12-20",
+      "amount": -492.84,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "Contract Discount - Unberth",
+      "description": "10% contract discount on unberthing service",
+      "date": "2025-12-21",
+      "amount": -492.84,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "VAT (IVA 16%)",
+      "description": "Mexican IVA 16% on net invoice amount (local tax)",
+      "date": "2025-12-23",
+      "amount": 1419.36,
+      "is_adjustment": true
+    }
+  ]
+}

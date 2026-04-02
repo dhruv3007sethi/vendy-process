@@ -5,32 +5,18 @@
     "gt": 24120,
     "flag": "Singapore"
   },
-  "voyage": "200",
   "port": "Santa Cruz de Tenerife",
+  "berth": "Dique del Este",
   "events": [
-    {
-      "type": "Berth",
-      "service_type": "Berth",
-      "date": "2026-02-26",
-      "tugs_alongside_time": "17:00",
-      "all_fast_time": "18:18",
-      "tugs_away_time": "18:18",
-      "tug_count": 2,
-      "berth_location": "Dique del Este",
-      "duration_mins": 78,
-      "note": "Berth 26.02.2026: Tug made fast 17:00, All Fast 18:18 = 78 min. Not on this invoice."
-    },
     {
       "type": "Unberth",
       "service_type": "Unberth",
       "date": "2026-03-01",
-      "tugs_alongside_time": "16:06",
-      "vessel_clear_time": "16:24",
-      "tugs_away_time": "16:24",
+      "pob_time": "16:06",
+      "vessel_cleared_time": "16:24",
       "tug_count": 2,
       "berth_location": "Dique del Este",
-      "duration_mins": 18,
-      "note": "Unberth 01.03.2026: POB 16:06, Vessel cleared 16:24 = 18 min. Well under 60 min standard -> no overtime."
+      "duration_mins": 18
     }
   ]
 }

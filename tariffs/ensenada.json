@@ -1,4 +1,5 @@
 {
+  "currency": "USD",
   "port_metadata": {
     "port_name": "Ensenada",
     "country": "Mexico",
@@ -41,107 +42,107 @@
       "third_tug_request": "If a third tug is requested, it is charged at the basic quota corresponding to the vessel's TRB range"
     }
   },
-  "tariff_matrix_per_service_hour": [
+  "rate_table": [
     {
-      "trb_range": "Under 2,500",
+      "dimension_range":"Under 2,500",
       "one_tug_arrival_usd": 29850.0,
       "two_tugs_arrival_usd": 59700.0,
       "one_tug_departure_usd": 29850.0,
       "two_tugs_departure_usd": 59700.0
     },
     {
-      "trb_range": "2,501 to 5,000",
+      "dimension_range":"2,501 to 5,000",
       "one_tug_arrival_usd": 43436.0,
       "two_tugs_arrival_usd": 73155.0,
       "one_tug_departure_usd": 43436.0,
       "two_tugs_departure_usd": 73155.0
     },
     {
-      "trb_range": "5,001 to 7,500",
+      "dimension_range":"5,001 to 7,500",
       "one_tug_arrival_usd": 44226.0,
       "two_tugs_arrival_usd": 73155.0,
       "one_tug_departure_usd": 44226.0,
       "two_tugs_departure_usd": 73155.0
     },
     {
-      "trb_range": "7,501 to 10,000",
+      "dimension_range":"7,501 to 10,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 73155.0,
       "one_tug_departure_usd": 36577.0,
       "two_tugs_departure_usd": 73155.0
     },
     {
-      "trb_range": "10,001 to 12,000",
+      "dimension_range":"10,001 to 12,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 73984.0,
       "one_tug_departure_usd": 36991.0,
       "two_tugs_departure_usd": 73984.0
     },
     {
-      "trb_range": "12,001 to 15,000",
+      "dimension_range":"12,001 to 15,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 95199.0,
       "one_tug_departure_usd": 50998.0,
       "two_tugs_departure_usd": 95199.0
     },
     {
-      "trb_range": "15,001 to 17,000",
+      "dimension_range":"15,001 to 17,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 103014.0,
       "one_tug_departure_usd": 50999.0,
       "two_tugs_departure_usd": 103014.0
     },
     {
-      "trb_range": "17,001 to 20,000",
+      "dimension_range":"17,001 to 20,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 110828.0,
       "one_tug_departure_usd": 53430.0,
       "two_tugs_departure_usd": 110828.0
     },
     {
-      "trb_range": "20,001 to 25,000",
+      "dimension_range":"20,001 to 25,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 117631.0,
       "one_tug_departure_usd": 58814.0,
       "two_tugs_departure_usd": 117631.0
     },
     {
-      "trb_range": "25,001 to 30,000",
+      "dimension_range":"25,001 to 30,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 127977.0,
       "one_tug_departure_usd": 63990.0,
       "two_tugs_departure_usd": 127977.0
     },
     {
-      "trb_range": "30,001 to 35,000",
+      "dimension_range":"30,001 to 35,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 129339.0,
       "one_tug_departure_usd": 64670.0,
       "two_tugs_departure_usd": 129339.0
     },
     {
-      "trb_range": "35,001 to 40,000",
+      "dimension_range":"35,001 to 40,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 130702.0,
       "one_tug_departure_usd": 65350.0,
       "two_tugs_departure_usd": 130702.0
     },
     {
-      "trb_range": "40,001 to 45,000",
+      "dimension_range":"40,001 to 45,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 135851.0,
       "one_tug_departure_usd": 76953.0,
       "two_tugs_departure_usd": 135851.0
     },
     {
-      "trb_range": "45,001 to 75,000",
+      "dimension_range":"45,001 to 75,000",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 135851.0,
       "one_tug_departure_usd": 76953.0,
       "two_tugs_departure_usd": 135851.0
     },
     {
-      "trb_range": "75,001 and above",
+      "dimension_range":"75,001 and above",
       "one_tug_arrival_usd": null,
       "two_tugs_arrival_usd": 135851.0,
       "one_tug_departure_usd": 76953.0,

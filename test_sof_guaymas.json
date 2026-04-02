@@ -1,0 +1,31 @@
+{
+  "vessel": {
+    "name": "STI MARVEL",
+    "imo": "9781234",
+    "grt": 29991,
+    "gt": 29991
+  },
+  "port": "Guaymas",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2025-11-17",
+      "tugs_alongside_time": "05:48",
+      "all_fast_time": "07:18",
+      "tug_count": 2,
+      "duration_hrs": 1.5,
+      "notes": "VB PACIFICO and VB GLORIOSO. Tugs dismissed 07:18. Service 90 min."
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2025-11-17",
+      "tugs_alongside_time": "20:00",
+      "all_fast_time": "20:20",
+      "tug_count": 2,
+      "duration_hrs": 0.333,
+      "notes": "VB PACIFICO and VB GLORIOSO. Service 20 min; billed as standard 1 hr."
+    }
+  ]
+}

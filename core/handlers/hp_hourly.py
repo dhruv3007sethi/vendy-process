@@ -39,6 +39,7 @@ def _get_rate_per_hp_hour(tariff_matrix: List[Dict], grt_value: float) -> float:
     """
     for row in tariff_matrix:
         bracket_text = str(
+            row.get('dimension_range') or
             row.get('grt_bracket') or row.get('bracket') or row.get('trb_range') or ''
         ).lower().replace(',', '').strip()
 

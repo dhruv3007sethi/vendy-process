@@ -95,9 +95,11 @@ def _score_confidence(
       - No SOF event found          : -0.30
       - No exact tariff match        : -0.15
       - Human review flag set        : -0.15
-      - Open doubts on this port     : -0.10
-      - Tug spec taken from invoice  : -0.05
       - Zone inferred (not from SOF) : -0.05
+
+    Not deducted (intentionally excluded):
+      - has_open_doubts     : port-level doubt flags are too coarse for per-line scoring
+      - tug_spec_from_invoice: tug count nearly always comes from the invoice; not a data gap
     """
     score = 1.0
 
@@ -107,10 +109,6 @@ def _score_confidence(
         score -= 0.15
     if human_review_flag:
         score -= 0.15
-    if has_open_doubts:
-        score -= 0.10
-    if tug_spec_from_invoice:
-        score -= 0.05
     if zone_inferred:
         score -= 0.05
 

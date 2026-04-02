@@ -1,0 +1,29 @@
+{
+  "vessel": {
+    "name": "SILVER VALERIE",
+    "imo": "9791652",
+    "grt": 29460,
+    "loa": 183
+  },
+  "port": "Manzanillo",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2025-12-20",
+      "time": "11:35",
+      "tug_count": 2,
+      "duration_hrs": 1.0,
+      "notes": "CMM MAGUEY (Boleta 13158) 11:35-12:35 (60 min). TMM COLIMA (Boleta 9025) 11:35-12:30 (55 min). Billed as 1 hr standard. Muelle Espig.Norte."
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2025-12-21",
+      "time": "15:40",
+      "tug_count": 2,
+      "duration_hrs": 0.667,
+      "notes": "CMM MAGUEY (Boleta 13167) 15:40-16:20 (40 min). CMM CENTENARIO (Boleta 7895) 15:40-16:20 (40 min). Billed as 1 hr standard. Muelle Espig.Norte."
+    }
+  ]
+}

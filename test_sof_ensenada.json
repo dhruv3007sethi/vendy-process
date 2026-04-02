@@ -1,0 +1,21 @@
+{
+  "vessel": {
+    "name": "PACIFIC GLORY",
+    "imo": "9845671",
+    "grt": 4000,
+    "gt": 4000
+  },
+  "port": "Ensenada",
+  "events": [
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2025-08-15",
+      "tugs_alongside_time": "10:00",
+      "all_fast_time": "10:45",
+      "tug_count": 1,
+      "duration_hrs": 0.75,
+      "notes": "1 tug departure. 45 minutes service duration — within 1-hour standard, no overtime."
+    }
+  ]
+}

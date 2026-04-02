@@ -1,0 +1,27 @@
+{
+  "invoice_reference": "0480038376",
+  "vendor": "Compañia Boluda Towage Canarias, S.L.",
+  "vessel_name": "HAFNIA SOYA",
+  "service_date": "2026-02-24",
+  "currency": "EUR",
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "Remolque Entrada 24.02.2026 - 2 remolcadores (VB TAMARAN + VB BANDAMA) incl. servicios especiales T+1",
+      "date": "2026-02-24",
+      "amount": 6572.94,
+      "gt": 24120,
+      "tug_count": 2,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "Remolque Salida 26.02.2026 - 2 remolcadores (VB TAMARAN + VB BANDAMA) T+1",
+      "date": "2026-02-26",
+      "amount": 3432.00,
+      "gt": 24120,
+      "tug_count": 2,
+      "is_adjustment": false
+    }
+  ]
+}

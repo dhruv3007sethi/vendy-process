@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_names": [
       "Valencia",
@@ -37,47 +38,47 @@
       }
     ]
   },
-  "tariff_matrix": {
+  "rate_table": {
     "general_tariffs": {
       "vessel_type": "Standard Vessels (Non-Gas Carriers)",
       "rates": [
         {
-          "gt_range": "0 - 12,000",
+          "dimension_range": "0 - 12,000",
           "fixed_amount_if": 1044.13,
           "variable_amount_iv": 0.0
         },
         {
-          "gt_range": "12,001 - 19,000",
+          "dimension_range": "12,001 - 19,000",
           "fixed_amount_if": 887.0,
           "variable_amount_iv": 0.0976
         },
         {
-          "gt_range": "19,001 - 22,000",
+          "dimension_range": "19,001 - 22,000",
           "fixed_amount_if": 887.0,
           "variable_amount_iv": 0.1164
         },
         {
-          "gt_range": "22,001 - 30,000",
+          "dimension_range": "22,001 - 30,000",
           "fixed_amount_if": 887.0,
           "variable_amount_iv": 0.1303
         },
         {
-          "gt_range": "30,001 - 35,000",
+          "dimension_range": "30,001 - 35,000",
           "fixed_amount_if": 887.0,
           "variable_amount_iv": 0.1356
         },
         {
-          "gt_range": "35,001 - 49,999",
+          "dimension_range": "35,001 - 49,999",
           "fixed_amount_if": 887.0,
           "variable_amount_iv": 0.1447
         },
         {
-          "gt_range": "50,000 - 99,999",
+          "dimension_range": "50,000 - 99,999",
           "fixed_amount_if": 1322.9,
           "variable_amount_iv": 0.141
         },
         {
-          "gt_range": "100,000 onwards",
+          "dimension_range": "100,000 onwards",
           "fixed_amount_if": 15661.95,
           "variable_amount_iv": 0.0
         }
@@ -87,12 +88,12 @@
       "vessel_type": "Gas Carriers",
       "rates": [
         {
-          "gt_range": "0 - 100,000",
+          "dimension_range": "0 - 100,000",
           "fixed_amount_if": 0.0,
           "variable_amount_iv": 0.371561
         },
         {
-          "gt_range": "100,001 onwards",
+          "dimension_range": "100,001 onwards",
           "fixed_amount_if": 41055.59,
           "variable_amount_iv": 0.0
         }

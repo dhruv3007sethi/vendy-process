@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Antwerp",
     "effective_date": "2026-01-01",
@@ -43,122 +44,122 @@
   },
   "tariff_a_seagoing_vessels_operational_engine": [
     {
-      "min_loa_m": 0,
-      "max_loa_m": 120.99,
+      "dimension_min": 0,
+      "dimension_max": 120.99,
       "zandvliet_kallo_rate_eur": 1200.0,
       "antwerp_city_rate_eur": 2590.0
     },
     {
-      "min_loa_m": 121.0,
-      "max_loa_m": 133.99,
+      "dimension_min": 121.0,
+      "dimension_max": 133.99,
       "zandvliet_kallo_rate_eur": 1260.0,
       "antwerp_city_rate_eur": 2710.0
     },
     {
-      "min_loa_m": 134.0,
-      "max_loa_m": 143.99,
+      "dimension_min": 134.0,
+      "dimension_max": 143.99,
       "zandvliet_kallo_rate_eur": 1390.0,
       "antwerp_city_rate_eur": 2920.0
     },
     {
-      "min_loa_m": 144.0,
-      "max_loa_m": 159.99,
+      "dimension_min": 144.0,
+      "dimension_max": 159.99,
       "zandvliet_kallo_rate_eur": 1600.0,
       "antwerp_city_rate_eur": 3440.0
     },
     {
-      "min_loa_m": 160.0,
-      "max_loa_m": 171.99,
+      "dimension_min": 160.0,
+      "dimension_max": 171.99,
       "zandvliet_kallo_rate_eur": 1720.0,
       "antwerp_city_rate_eur": 3650.0
     },
     {
-      "min_loa_m": 172.0,
-      "max_loa_m": 184.99,
+      "dimension_min": 172.0,
+      "dimension_max": 184.99,
       "zandvliet_kallo_rate_eur": 1820.0,
       "antwerp_city_rate_eur": 3800.0
     },
     {
-      "min_loa_m": 185.0,
-      "max_loa_m": 192.99,
+      "dimension_min": 185.0,
+      "dimension_max": 192.99,
       "zandvliet_kallo_rate_eur": 2010.0,
       "antwerp_city_rate_eur": 4230.0
     },
     {
-      "min_loa_m": 193.0,
-      "max_loa_m": 206.99,
+      "dimension_min": 193.0,
+      "dimension_max": 206.99,
       "zandvliet_kallo_rate_eur": 2170.0,
       "antwerp_city_rate_eur": 4650.0
     },
     {
-      "min_loa_m": 207.0,
-      "max_loa_m": 219.99,
+      "dimension_min": 207.0,
+      "dimension_max": 219.99,
       "zandvliet_kallo_rate_eur": 2340.0,
       "antwerp_city_rate_eur": 4960.0
     },
     {
-      "min_loa_m": 220.0,
-      "max_loa_m": 243.99,
+      "dimension_min": 220.0,
+      "dimension_max": 243.99,
       "zandvliet_kallo_rate_eur": 2430.0,
       "antwerp_city_rate_eur": 5040.0
     },
     {
-      "min_loa_m": 244.0,
-      "max_loa_m": 259.99,
+      "dimension_min": 244.0,
+      "dimension_max": 259.99,
       "zandvliet_kallo_rate_eur": 2500.0,
       "antwerp_city_rate_eur": 5360.0
     },
     {
-      "min_loa_m": 260.0,
-      "max_loa_m": 275.99,
+      "dimension_min": 260.0,
+      "dimension_max": 275.99,
       "zandvliet_kallo_rate_eur": 2560.0,
       "antwerp_city_rate_eur": 5560.0
     },
     {
-      "min_loa_m": 276.0,
-      "max_loa_m": 289.99,
+      "dimension_min": 276.0,
+      "dimension_max": 289.99,
       "zandvliet_kallo_rate_eur": 2640.0,
       "antwerp_city_rate_eur": 5680.0
     },
     {
-      "min_loa_m": 290.0,
-      "max_loa_m": 304.99,
+      "dimension_min": 290.0,
+      "dimension_max": 304.99,
       "zandvliet_kallo_rate_eur": 2730.0,
       "antwerp_city_rate_eur": 5810.0
     },
     {
-      "min_loa_m": 305.0,
-      "max_loa_m": 319.99,
+      "dimension_min": 305.0,
+      "dimension_max": 319.99,
       "zandvliet_kallo_rate_eur": 2830.0,
       "antwerp_city_rate_eur": 5950.0
     },
     {
-      "min_loa_m": 320.0,
-      "max_loa_m": 334.99,
+      "dimension_min": 320.0,
+      "dimension_max": 334.99,
       "zandvliet_kallo_rate_eur": 2950.0,
       "antwerp_city_rate_eur": 6040.0
     },
     {
-      "min_loa_m": 335.0,
-      "max_loa_m": 349.99,
+      "dimension_min": 335.0,
+      "dimension_max": 349.99,
       "zandvliet_kallo_rate_eur": 3060.0,
       "antwerp_city_rate_eur": 6190.0
     },
     {
-      "min_loa_m": 350.0,
-      "max_loa_m": 364.99,
+      "dimension_min": 350.0,
+      "dimension_max": 364.99,
       "zandvliet_kallo_rate_eur": 3200.0,
       "antwerp_city_rate_eur": 6310.0
     },
     {
-      "min_loa_m": 365.0,
-      "max_loa_m": 389.99,
+      "dimension_min": 365.0,
+      "dimension_max": 389.99,
       "zandvliet_kallo_rate_eur": 3330.0,
       "antwerp_city_rate_eur": 6430.0
     },
     {
-      "min_loa_m": 390.0,
-      "max_loa_m": 999.99,
+      "dimension_min": 390.0,
+      "dimension_max": 999.99,
       "zandvliet_kallo_rate_eur": 3450.0,
       "antwerp_city_rate_eur": 6530.0
     }

@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Dordrecht and Moerdijk",
     "effective_date": "2026-01-01",
@@ -6,7 +7,7 @@
     "vessel_dimension_unit": "meters (m)",
     "vessel_length_source": "Lloyd's Register of Shipping (o.a.)"
   },
-  "tariff_a_matrix": {
+  "rate_table": {
     "description": "Seagoing vessels with operational main engine, prices per move and for each tug employed",
     "sections": [
       {

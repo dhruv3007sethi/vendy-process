@@ -72,10 +72,8 @@ def _parse_dict_object_brackets(brackets: List[dict], dimension_value: float,
                  Falls back to generic "rate" / "rate_eur" keys.
     """
     for bracket in brackets:
-        lower = (bracket.get('min_gt') or bracket.get('min_loa') or bracket.get('min_loa_m') or
-                 bracket.get('min_grt') or bracket.get('loa_from') or 0)
-        upper = (bracket.get('max_gt') or bracket.get('max_loa') or bracket.get('max_loa_m') or
-                 bracket.get('max_grt') or bracket.get('loa_to'))
+        lower = bracket.get('dimension_min', 0)
+        upper = bracket.get('dimension_max')
 
         if upper is None:
             continue
@@ -83,9 +81,8 @@ def _parse_dict_object_brackets(brackets: List[dict], dimension_value: float,
         if float(lower) <= dimension_value <= float(upper):
             if rate_column and rate_column in bracket:
                 return float(bracket[rate_column])
-            for field in ['rate', 'rate_eur', 'tariff_rate', 'base_rate']:
-                if field in bracket:
-                    return float(bracket[field])
+            if 'base_rate' in bracket:
+                return float(bracket['base_rate'])
             raise ValueError(
                 f"Bracket matched for {dimension_value} but no rate field found. "
                 f"Available keys: {list(bracket.keys())}. Specify rate_column."
@@ -112,44 +109,52 @@ def _parse_text_range_brackets(brackets: List[dict], dimension_value: float,
                  If None, tries common field names.
     """
     for bracket in brackets:
-        text = str(
-            bracket.get('grt_bracket') or
-            bracket.get('loa_bracket') or
-            bracket.get('gt_bracket') or
-            bracket.get('bracket') or ''
-        )
+        text = str(bracket.get('dimension_range') or '')
         text_clean = text.lower().replace(',', '').strip()
         matched = False
 
         # Pattern: "Under X" (e.g., "Under 5,000")
         if text_clean.startswith('under '):
-            upper = float(text_clean.replace('under ', ''))
+            upper = float(re.sub(r'[^\d.]', '', text_clean.replace('under', '')))
             matched = dimension_value < upper
+
+        # Pattern: "Up to X" (inclusive, e.g., "Up to 8,000 GT")
+        elif text_clean.startswith('up to '):
+            upper = float(re.sub(r'[^\d.]', '', text_clean.replace('up to', '')))
+            matched = dimension_value <= upper
 
         # Pattern: "X to Y" (e.g., "5,000 to 10,000")
         elif ' to ' in text_clean:
             parts = text_clean.split(' to ')
             try:
-                lower = float(parts[0].strip())
-                upper = float(parts[1].strip())
+                lower = float(re.sub(r'[^\d.]', '', parts[0]))
+                upper = float(re.sub(r'[^\d.]', '', parts[1]))
+                matched = lower <= dimension_value <= upper
+            except ValueError:
+                pass
+
+        # Pattern: "X - Y" (dash format, e.g., "8,001 - 15,000 GT")
+        elif ' - ' in text_clean:
+            parts = text_clean.split(' - ')
+            try:
+                lower = float(re.sub(r'[^\d.]', '', parts[0]))
+                upper = float(re.sub(r'[^\d.]', '', parts[1]))
                 matched = lower <= dimension_value <= upper
             except ValueError:
                 pass
 
         # Pattern: "Over X" (Strictly greater than, e.g., "Over 50,000")
         elif text_clean.startswith('over '):
-            base = text_clean.replace('over ', '').strip()
             try:
-                lower = float(base)
+                lower = float(re.sub(r'[^\d.]', '', text_clean.replace('over', '')))
                 matched = dimension_value > lower
             except ValueError:
                 pass
 
-        # Pattern: "X and above" (Greater than or equal, e.g., "50,000 and above")
+        # Pattern: "X and above" (Greater than or equal, e.g., "50,000 GT and above")
         elif 'and above' in text_clean:
-            base = text_clean.replace('and above', '').strip()
             try:
-                lower = float(base)
+                lower = float(re.sub(r'[^\d.]', '', text_clean.replace('and above', '')))
                 matched = dimension_value >= lower
             except ValueError:
                 pass
@@ -157,11 +162,9 @@ def _parse_text_range_brackets(brackets: List[dict], dimension_value: float,
         if matched:
             if rate_column and rate_column in bracket:
                 return float(bracket[rate_column])
-            
-            # Fallback: try common rate field names
-            for field in ['rate', 'rate_eur', 'tariff_rate', 'base_rate']:
-                if field in bracket:
-                    return float(bracket[field])
+
+            if 'base_rate' in bracket:
+                return float(bracket['base_rate'])
             
             raise ValueError(
                 f"Bracket matched for {dimension_value} ('{text}') but no rate field found. "
@@ -209,19 +212,11 @@ def lookup_bracket_rate(
         first = rates_data[0]
 
         # Format 2: dict objects with min/max keys
-        has_min_max = any(
-            k in first for k in ['min_gt', 'max_gt', 'min_loa', 'max_loa',
-                                  'min_loa_m', 'max_loa_m', 'min_grt', 'max_grt',
-                                  'loa_from', 'loa_to']
-        )
-        if has_min_max:
+        if 'dimension_min' in first or 'dimension_max' in first:
             return _parse_dict_object_brackets(rates_data, dimension_value, rate_column)
 
         # Format 3: text range descriptions
-        has_text_bracket = any(
-            k in first for k in ['grt_bracket', 'loa_bracket', 'gt_bracket', 'bracket']
-        )
-        if has_text_bracket:
+        if 'dimension_range' in first:
             return _parse_text_range_brackets(rates_data, dimension_value, rate_column)
 
         raise ValueError(

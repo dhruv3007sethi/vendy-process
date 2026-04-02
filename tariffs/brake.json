@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Brake",
     "effective_date": "2026-01-01",
@@ -10,169 +11,169 @@
     "description": "Seagoing vessels with operational main engine. Rates per tug and move.",
     "rates": [
       {
-        "gt_min": 0,
-        "gt_max": 4000,
-        "rate_eur": 2156
+        "dimension_min": 0,
+        "dimension_max": 4000,
+        "base_rate": 2156
       },
       {
-        "gt_min": 4001,
-        "gt_max": 6000,
-        "rate_eur": 2771
+        "dimension_min": 4001,
+        "dimension_max": 6000,
+        "base_rate": 2771
       },
       {
-        "gt_min": 6001,
-        "gt_max": 8000,
-        "rate_eur": 3122
+        "dimension_min": 6001,
+        "dimension_max": 8000,
+        "base_rate": 3122
       },
       {
-        "gt_min": 8001,
-        "gt_max": 10000,
-        "rate_eur": 3460
+        "dimension_min": 8001,
+        "dimension_max": 10000,
+        "base_rate": 3460
       },
       {
-        "gt_min": 10001,
-        "gt_max": 12000,
-        "rate_eur": 3636
+        "dimension_min": 10001,
+        "dimension_max": 12000,
+        "base_rate": 3636
       },
       {
-        "gt_min": 12001,
-        "gt_max": 14000,
-        "rate_eur": 3811
+        "dimension_min": 12001,
+        "dimension_max": 14000,
+        "base_rate": 3811
       },
       {
-        "gt_min": 14001,
-        "gt_max": 16000,
-        "rate_eur": 3987
+        "dimension_min": 14001,
+        "dimension_max": 16000,
+        "base_rate": 3987
       },
       {
-        "gt_min": 16001,
-        "gt_max": 18000,
-        "rate_eur": 4325
+        "dimension_min": 16001,
+        "dimension_max": 18000,
+        "base_rate": 4325
       },
       {
-        "gt_min": 18001,
-        "gt_max": 20000,
-        "rate_eur": 4500
+        "dimension_min": 18001,
+        "dimension_max": 20000,
+        "base_rate": 4500
       },
       {
-        "gt_min": 20001,
-        "gt_max": 22000,
-        "rate_eur": 4676
+        "dimension_min": 20001,
+        "dimension_max": 22000,
+        "base_rate": 4676
       },
       {
-        "gt_min": 22001,
-        "gt_max": 24000,
-        "rate_eur": 4919
+        "dimension_min": 22001,
+        "dimension_max": 24000,
+        "base_rate": 4919
       },
       {
-        "gt_min": 24001,
-        "gt_max": 26000,
-        "rate_eur": 5265
+        "dimension_min": 24001,
+        "dimension_max": 26000,
+        "base_rate": 5265
       },
       {
-        "gt_min": 26001,
-        "gt_max": 28000,
-        "rate_eur": 5616
+        "dimension_min": 26001,
+        "dimension_max": 28000,
+        "base_rate": 5616
       },
       {
-        "gt_min": 28001,
-        "gt_max": 30000,
-        "rate_eur": 5879
+        "dimension_min": 28001,
+        "dimension_max": 30000,
+        "base_rate": 5879
       },
       {
-        "gt_min": 30001,
-        "gt_max": 35000,
-        "rate_eur": 6054
+        "dimension_min": 30001,
+        "dimension_max": 35000,
+        "base_rate": 6054
       },
       {
-        "gt_min": 35001,
-        "gt_max": 40000,
-        "rate_eur": 6230
+        "dimension_min": 35001,
+        "dimension_max": 40000,
+        "base_rate": 6230
       },
       {
-        "gt_min": 40001,
-        "gt_max": 45000,
-        "rate_eur": 6393
+        "dimension_min": 40001,
+        "dimension_max": 45000,
+        "base_rate": 6393
       },
       {
-        "gt_min": 45001,
-        "gt_max": 50000,
-        "rate_eur": 6568
+        "dimension_min": 45001,
+        "dimension_max": 50000,
+        "base_rate": 6568
       },
       {
-        "gt_min": 50001,
-        "gt_max": 60000,
-        "rate_eur": 6769
+        "dimension_min": 50001,
+        "dimension_max": 60000,
+        "base_rate": 6769
       },
       {
-        "gt_min": 60001,
-        "gt_max": 70000,
-        "rate_eur": 6945
+        "dimension_min": 60001,
+        "dimension_max": 70000,
+        "base_rate": 6945
       },
       {
-        "gt_min": 70001,
-        "gt_max": 80000,
-        "rate_eur": 7107
+        "dimension_min": 70001,
+        "dimension_max": 80000,
+        "base_rate": 7107
       },
       {
-        "gt_min": 80001,
-        "gt_max": 90000,
-        "rate_eur": 7296
+        "dimension_min": 80001,
+        "dimension_max": 90000,
+        "base_rate": 7296
       },
       {
-        "gt_min": 90001,
-        "gt_max": 100000,
-        "rate_eur": 7471
+        "dimension_min": 90001,
+        "dimension_max": 100000,
+        "base_rate": 7471
       },
       {
-        "gt_min": 100001,
-        "gt_max": 110000,
-        "rate_eur": 7659
+        "dimension_min": 100001,
+        "dimension_max": 110000,
+        "base_rate": 7659
       },
       {
-        "gt_min": 110001,
-        "gt_max": 120000,
-        "rate_eur": 7834
+        "dimension_min": 110001,
+        "dimension_max": 120000,
+        "base_rate": 7834
       },
       {
-        "gt_min": 120001,
-        "gt_max": 130000,
-        "rate_eur": 8022
+        "dimension_min": 120001,
+        "dimension_max": 130000,
+        "base_rate": 8022
       },
       {
-        "gt_min": 130001,
-        "gt_max": 140000,
-        "rate_eur": 8198
+        "dimension_min": 130001,
+        "dimension_max": 140000,
+        "base_rate": 8198
       },
       {
-        "gt_min": 140001,
-        "gt_max": 150000,
-        "rate_eur": 8386
+        "dimension_min": 140001,
+        "dimension_max": 150000,
+        "base_rate": 8386
       },
       {
-        "gt_min": 150001,
-        "gt_max": 160000,
-        "rate_eur": 8561
+        "dimension_min": 150001,
+        "dimension_max": 160000,
+        "base_rate": 8561
       },
       {
-        "gt_min": 160001,
-        "gt_max": 170000,
-        "rate_eur": 8737
+        "dimension_min": 160001,
+        "dimension_max": 170000,
+        "base_rate": 8737
       },
       {
-        "gt_min": 170001,
-        "gt_max": 180000,
-        "rate_eur": 8919
+        "dimension_min": 170001,
+        "dimension_max": 180000,
+        "base_rate": 8919
       },
       {
-        "gt_min": 180001,
-        "gt_max": 190000,
-        "rate_eur": 9101
+        "dimension_min": 180001,
+        "dimension_max": 190000,
+        "base_rate": 9101
       },
       {
-        "gt_min": 190001,
-        "gt_max": 200000,
-        "rate_eur": 9276
+        "dimension_min": 190001,
+        "dimension_max": 200000,
+        "base_rate": 9276
       }
     ],
     "oversize_logic": {

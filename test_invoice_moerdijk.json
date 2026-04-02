@@ -1,0 +1,25 @@
+{
+  "invoice_reference": "950125011923",
+  "vendor": "Boluda Towage Rotterdam B.V.",
+  "vessel_name": "DING HENG 23",
+  "service_date": "2025-07-25",
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "MOERDIJK (without escorting) - Arrival 25.07.2025",
+      "date": "2025-07-25",
+      "amount": 3200.00,
+      "loa": 120.0,
+      "tug_count": 1,
+      "zone": "section_6",
+      "is_adjustment": false
+    },
+    {
+      "service_type": "BunkerSurcharge",
+      "description": "Bunker Surcharge 17%",
+      "date": "2025-07-25",
+      "amount": 544.00,
+      "is_adjustment": true
+    }
+  ]
+}

@@ -43,36 +43,37 @@
       }
     ]
   },
-  "tariff_matrix_per_tug": [
+  "rate_table": [
     {
-      "gross_tonnage_bracket": "Up to 8,000 GT",
-      "first_hour_rate": 516.59,
+      "dimension_range": "Up to 8,000 GT",
+      "base_rate": 516.59,
       "vessel_type": "General Seagoing Vessels"
     },
     {
-      "gross_tonnage_bracket": "8,001 - 15,000 GT",
-      "first_hour_rate": 928.96,
+      "dimension_range": "8,001 - 15,000 GT",
+      "base_rate": 928.96,
       "vessel_type": "General Seagoing Vessels"
     },
     {
-      "gross_tonnage_bracket": "15,001 - 20,000 GT",
-      "first_hour_rate": 1200.85,
+      "dimension_range": "15,001 - 20,000 GT",
+      "base_rate": 1200.85,
       "vessel_type": "General Seagoing Vessels"
     },
     {
-      "gross_tonnage_bracket": "20,001 - 30,000 GT",
-      "first_hour_rate": 1368.51,
+      "dimension_range": "20,001 - 30,000 GT",
+      "base_rate": 1368.51,
       "vessel_type": "General Seagoing Vessels"
     },
     {
-      "gross_tonnage_bracket": "30,001 - 40,000 GT",
-      "first_hour_rate": 1549.77,
+      "dimension_range": "30,001 - 40,000 GT",
+      "base_rate": 1549.77,
       "vessel_type": "General Seagoing Vessels"
     },
     {
-      "gross_tonnage_bracket": "40,001 GT and above",
-      "first_hour_rate": 1934.95,
+      "dimension_range": "40,001 GT and above",
+      "base_rate": 1934.95,
       "vessel_type": "General Seagoing Vessels"
     }
-  ]
+  ],
+  "currency": "USD"
 }

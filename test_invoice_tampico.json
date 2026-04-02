@@ -1,0 +1,57 @@
+{
+  "invoice_reference": "TMP5170036247",
+  "vendor": "Compañía Marítima del Pacífico, SA de CV (Boluda Mexico)",
+  "vessel_name": "STI LA BOCA",
+  "service_date": "2025-02-06",
+  "currency": "USD",
+  "line_items": [
+    {
+      "service_type": "Berth",
+      "description": "TMP 5170036247 - Berting operation - 06.02.2025 - 2 tugs (VB CARIBE + VB SONORA) - Tampico-Madero 4",
+      "date": "2025-02-06",
+      "amount": 8269.66,
+      "grt": 29738,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 20.4268,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Unberth",
+      "description": "TMP 5170036248 - Unberting operation - 15.02.2025 - 2 tugs (VB SONORA + VB CARIBE) - Tampico-Madero 4",
+      "date": "2025-02-15",
+      "amount": 4709.14,
+      "grt": 29738,
+      "tug_count": 2,
+      "fx_rate_mxn_usd": 20.4978,
+      "is_adjustment": false
+    },
+    {
+      "service_type": "Contract Discount - Berth",
+      "description": "10% contract discount on berthing service",
+      "date": "2025-02-06",
+      "amount": -826.96,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "Contract Discount - Unberth",
+      "description": "10% contract discount on unberthing service",
+      "date": "2025-02-15",
+      "amount": -470.92,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "VAT (IVA 16%) - Berth",
+      "description": "Mexican IVA 16% on berthing net amount",
+      "date": "2025-02-06",
+      "amount": 1190.83,
+      "is_adjustment": true
+    },
+    {
+      "service_type": "VAT (IVA 16%) - Unberth",
+      "description": "Mexican IVA 16% on unberthing net amount",
+      "date": "2025-02-15",
+      "amount": 678.12,
+      "is_adjustment": true
+    }
+  ]
+}

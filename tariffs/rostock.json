@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Rostock",
     "effective_date": "2026-01-01",
@@ -33,53 +34,53 @@
     "description": "Per move and per tug for vessels with operational main engine in Sector 1.",
     "brackets": [
       {
-        "max_gt": 5000,
-        "rate": 1442
+        "dimension_max": 5000,
+        "base_rate": 1442
       },
       {
-        "min_gt": 5001,
-        "max_gt": 10000,
-        "rate": 1805
+        "dimension_min": 5001,
+        "dimension_max": 10000,
+        "base_rate": 1805
       },
       {
-        "min_gt": 10001,
-        "max_gt": 15000,
-        "rate": 2181
+        "dimension_min": 10001,
+        "dimension_max": 15000,
+        "base_rate": 2181
       },
       {
-        "min_gt": 15001,
-        "max_gt": 20000,
-        "rate": 2633
+        "dimension_min": 15001,
+        "dimension_max": 20000,
+        "base_rate": 2633
       },
       {
-        "min_gt": 20001,
-        "max_gt": 25000,
-        "rate": 3085
+        "dimension_min": 20001,
+        "dimension_max": 25000,
+        "base_rate": 3085
       },
       {
-        "min_gt": 25001,
-        "max_gt": 30000,
-        "rate": 3987
+        "dimension_min": 25001,
+        "dimension_max": 30000,
+        "base_rate": 3987
       },
       {
-        "min_gt": 30001,
-        "max_gt": 35000,
-        "rate": 4438
+        "dimension_min": 30001,
+        "dimension_max": 35000,
+        "base_rate": 4438
       },
       {
-        "min_gt": 35001,
-        "max_gt": 40000,
-        "rate": 5039
+        "dimension_min": 35001,
+        "dimension_max": 40000,
+        "base_rate": 5039
       },
       {
-        "min_gt": 40001,
-        "max_gt": 45000,
-        "rate": 5491
+        "dimension_min": 40001,
+        "dimension_max": 45000,
+        "base_rate": 5491
       },
       {
-        "min_gt": 45001,
-        "max_gt": 50000,
-        "rate": 6093
+        "dimension_min": 45001,
+        "dimension_max": 50000,
+        "base_rate": 6093
       }
     ],
     "oversize_logic": {

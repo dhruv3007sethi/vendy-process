@@ -1,4 +1,5 @@
 {
+  "currency": "EUR",
   "port_metadata": {
     "port_name": "Rotterdam",
     "effective_date": "2026-01-01",
@@ -35,85 +36,85 @@
   },
   "tariff_a_seagoing_vessels_operational_engine": [
     {
-      "min_loa_m": 0,
-      "max_loa_m": 163,
+      "dimension_min": 0,
+      "dimension_max": 163,
       "rotterdam_rate": 2249,
       "europoort_rate": 2387,
       "maasvlakte_ii_rate": 2983
     },
     {
-      "min_loa_m": 164,
-      "max_loa_m": 175,
+      "dimension_min": 164,
+      "dimension_max": 175,
       "rotterdam_rate": 2477,
       "europoort_rate": 2711,
       "maasvlakte_ii_rate": 3389
     },
     {
-      "min_loa_m": 176,
-      "max_loa_m": 187,
+      "dimension_min": 176,
+      "dimension_max": 187,
       "rotterdam_rate": 2715,
       "europoort_rate": 3036,
       "maasvlakte_ii_rate": 3795
     },
     {
-      "min_loa_m": 188,
-      "max_loa_m": 212,
+      "dimension_min": 188,
+      "dimension_max": 212,
       "rotterdam_rate": 3005,
       "europoort_rate": 3521,
       "maasvlakte_ii_rate": 4401
     },
     {
-      "min_loa_m": 213,
-      "max_loa_m": 236,
+      "dimension_min": 213,
+      "dimension_max": 236,
       "rotterdam_rate": 3445,
       "europoort_rate": 4100,
       "maasvlakte_ii_rate": 5125
     },
     {
-      "min_loa_m": 237,
-      "max_loa_m": 260,
+      "dimension_min": 237,
+      "dimension_max": 260,
       "rotterdam_rate": 4015,
       "europoort_rate": 4648,
       "maasvlakte_ii_rate": 5810
     },
     {
-      "min_loa_m": 261,
-      "max_loa_m": 285,
+      "dimension_min": 261,
+      "dimension_max": 285,
       "rotterdam_rate": 4700,
       "europoort_rate": 5150,
       "maasvlakte_ii_rate": 6438
     },
     {
-      "min_loa_m": 286,
-      "max_loa_m": 309,
+      "dimension_min": 286,
+      "dimension_max": 309,
       "rotterdam_rate": 5412,
       "europoort_rate": 5412,
       "maasvlakte_ii_rate": 6764
     },
     {
-      "min_loa_m": 310,
-      "max_loa_m": 334,
+      "dimension_min": 310,
+      "dimension_max": 334,
       "rotterdam_rate": 5766,
       "europoort_rate": 5766,
       "maasvlakte_ii_rate": 7208
     },
     {
-      "min_loa_m": 335,
-      "max_loa_m": 358,
+      "dimension_min": 335,
+      "dimension_max": 358,
       "rotterdam_rate": 6065,
       "europoort_rate": 6065,
       "maasvlakte_ii_rate": 7581
     },
     {
-      "min_loa_m": 359,
-      "max_loa_m": 383,
+      "dimension_min": 359,
+      "dimension_max": 383,
       "rotterdam_rate": 6283,
       "europoort_rate": 6283,
       "maasvlakte_ii_rate": 7854
     },
     {
-      "min_loa_m": 384,
-      "max_loa_m": 425,
+      "dimension_min": 384,
+      "dimension_max": 425,
       "rotterdam_rate": 6553,
       "europoort_rate": 6553,
       "maasvlakte_ii_rate": 8191

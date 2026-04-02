@@ -55,6 +55,16 @@ CONFIDENCE_COLORS = {
     "LOW":    "#dc3545",
 }
 
+def var_color(pct: float) -> str:
+    """Green ≤1%, amber 1–5%, red >5%."""
+    a = abs(pct)
+    if a <= 1.0:
+        return "#28a745"
+    elif a <= 5.0:
+        return "#fd7e14"
+    else:
+        return "#dc3545"
+
 COMMENTS_FILE = ROOT / "officer_comments.json"
 
 # ─────────────────────────────────────────────
@@ -428,9 +438,32 @@ with tab_verify:
             st.session_state["selected_port"]    = selected_port
 
         except FileNotFoundError as e:
-            st.error(str(e))
+            fname = str(e)
+            st.error(
+                f"**Tariff file not found for port `{selected_port}`.**\n\n"
+                f"{fname}\n\n"
+                f"Check that `tariffs/{selected_port.lower()}.json` exists in the project folder."
+            )
+        except ValueError as e:
+            msg = str(e)
+            if "not found in calculation profiles" in msg:
+                available = sorted(profiles_data["calculation_profiles"].keys())
+                st.error(
+                    f"**Port `{selected_port}` is not configured.**\n\n"
+                    f"Available ports: {', '.join(available)}"
+                )
+            elif "No GT bracket found" in msg or "No LOA bracket" in msg:
+                # Extract dimension info from the error message if present
+                st.error(
+                    f"**Vessel dimension outside tariff bracket range.**\n\n"
+                    f"{msg}\n\n"
+                    f"The vessel's GT or LOA falls outside all rows in the `{selected_port}` "
+                    f"tariff table. Check the tariff JSON or raise with the port agent."
+                )
+            else:
+                st.error(f"**Calculation error:** {msg}")
         except Exception as e:
-            st.error(f"Engine error: {e}")
+            st.error(f"**Unexpected engine error:** {e}")
             raise
 
     # ── Results ───────────────────────────────
@@ -471,6 +504,28 @@ with tab_verify:
   </div>
 </div>
 """, unsafe_allow_html=True)
+
+        # ── 8b-pre. Dim value missing warning ──
+        _dim_val  = result.get("vessel_dimension_value", None)
+        _dim_type = result.get("vessel_dimension_type", "GT")
+        if _dim_val is not None and float(_dim_val) == 0.0:
+            _dim_key_map = {
+                "GT":  "`gt`",
+                "GRT": "`grt` (or `trb`)",
+                "LOA_meters": "`loa`",
+                "LOA": "`loa`",
+            }
+            _dim_key = _dim_key_map.get(_dim_type, f"`{_dim_type.lower()}`")
+            st.warning(
+                f"**Vessel dimension missing — calculation used 0.0 {_dim_type}.**\n\n"
+                f"The `{selected_port}` tariff uses **{_dim_type}** as the billing dimension, "
+                f"but no {_dim_key} value was found in the SOF vessel block or in any invoice line.\n\n"
+                f"**What the engine did:** It continued the calculation with {_dim_type} = 0, "
+                f"producing a base rate of 0 (or only the fixed component). "
+                f"The expected amount shown is therefore incorrect.\n\n"
+                f"**To fix:** Add {_dim_key} to the SOF `vessel` block "
+                f"or to each invoice line item, then re-run verification."
+            )
 
         # ── 8b. Invoice header ──────────────────
         _section_header("Invoice Summary")
@@ -534,7 +589,7 @@ with tab_verify:
     <div><span style="color:#6b7a9d;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Invoiced</span><br>
          <span style="color:#0d1f3c;font-weight:600;font-size:0.92rem;">{fmt_eur(invoiced, currency)}</span></div>
     <div><span style="color:#6b7a9d;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Variance</span><br>
-         <span style="color:{"#dc3545" if abs(var_pct)>1 else "#28a745"};font-weight:700;font-size:0.92rem;">{var_pct:+.2f}%</span>
+         <span style="color:{var_color(var_pct)};font-weight:700;font-size:0.92rem;">{var_pct:+.2f}%</span>
          <span style="color:#6b7a9d;font-size:0.78rem;"> ({fmt_eur(var_amt, currency)})</span></div>
   </div>
 </div>
@@ -556,7 +611,16 @@ with tab_verify:
                     if li.get("overtime_applied"):
                         st.markdown(f"**Overtime:** {li['overtime_applied']}")
                     if li.get("human_review_flag"):
-                        st.warning(f"Review flag: {li.get('human_review_reason', '')}")
+                        reason = li.get("human_review_reason", "")
+                        if "No GT bracket" in reason or "No LOA bracket" in reason or "CALCULATION_ERROR" in li.get("tariff_rule_cited", ""):
+                            st.error(
+                                f"**Vessel outside tariff bracket range.** "
+                                f"The vessel dimension does not match any row in the tariff table. "
+                                f"Contact the port agent to confirm the correct tariff applies. "
+                                f"Detail: {reason}"
+                            )
+                        else:
+                            st.warning(f"Review flag: {reason}")
                     if li.get("notes"):
                         st.markdown(f"**Notes:** {li['notes']}")
 
@@ -680,6 +744,135 @@ with tab_verify:
 
         st.divider()
 
+        # ── 8j. Plain English verification report ──
+        _section_header("Verification Report")
+        with st.expander("Read full plain-English report", expanded=True):
+            cur  = result.get("currency", "EUR")
+            port = result.get("port", "")
+            vsl  = result.get("vessel_name", "—")
+            vnd  = result.get("vendor", "—")
+            ref  = result.get("invoice_reference", "—")
+            sdt  = result.get("service_date", "—")
+            exp  = result.get("total_expected", 0.0)
+            inv  = result.get("total_invoiced", 0.0)
+            var  = result.get("total_variance", 0.0)
+            var_pct_overall = (var / exp * 100) if exp else 0.0
+            conf_lbl = result.get("overall_confidence_label", "")
+            conf_sc  = result.get("overall_confidence", 0.0)
+
+            # -- Overall narrative --
+            verdict_prose = {
+                "AUTO_APPROVED":   "All charges on this invoice match the expected tariff amounts within the allowed tolerance. No discrepancies were found.",
+                "MISMATCH":        "One or more charges on this invoice differ from the expected tariff amounts by more than the allowed 1% tolerance.",
+                "REVIEW_REQUIRED": "The engine was unable to fully validate one or more charges — either because no matching event was found in the SOF, or because the tariff rule requires human judgement.",
+            }
+
+            direction = "over" if var > 0 else "under"
+            abs_var   = abs(var)
+            abs_pct   = abs(var_pct_overall)
+
+            report_lines = [
+                f"**Invoice {ref}** · Vessel: {vsl} · Port: {port} · Vendor: {vnd} · Service date: {sdt}",
+                "",
+                f"**Overall result: {verdict}**",
+                verdict_prose.get(verdict, ""),
+                "",
+                "**Financial summary**",
+                f"- Expected total (from tariff): **{fmt_eur(exp, cur)}**",
+                f"- Invoiced total: **{fmt_eur(inv, cur)}**",
+                f"- Difference: **{fmt_eur(var, cur)}** ({abs_pct:.2f}% {direction}charged)"
+                + (" — within tolerance" if abs_pct <= 1.0 else ""),
+                f"- Engine confidence: **{conf_lbl}** ({conf_sc:.0%})"
+                + (" — the engine had full SOF and tariff data to work with" if conf_lbl == "HIGH"
+                   else " — minor data gaps; result is indicative" if conf_lbl == "MEDIUM"
+                   else " — significant data gaps; treat result with caution"),
+                "",
+                "**Line-by-line findings**",
+            ]
+
+            for li in line_items:
+                ln       = li.get("line_number", "?")
+                desc     = li.get("service_description", "")
+                lexp     = li.get("expected_amount", 0.0)
+                linv     = li.get("invoiced_amount", 0.0)
+                lvar     = li.get("variance", 0.0)
+                lvar_pct = li.get("variance_pct", 0.0)
+                lv       = li.get("verdict", "")
+                cl       = li.get("confidence_label", "")
+                cs       = li.get("confidence_score", 0.0)
+                sof_ev   = li.get("sof_event_cited") or "No matching SOF event found"
+                tariff_r = li.get("tariff_rule_cited") or "—"
+                handler  = li.get("handler_used") or "—"
+                ot       = li.get("overtime_applied")
+                hr_flag  = li.get("human_review_flag", False)
+                hr_rsn   = li.get("human_review_reason", "")
+                surcharges = li.get("surcharges_applied") or []
+                expls      = li.get("candidate_explanations") or []
+
+                ldir = "over" if lvar > 0 else "under"
+                abs_lvar = abs(lvar)
+                abs_lpct = abs(lvar_pct)
+
+                report_lines.append(f"\n**Line {ln} — {desc}**")
+
+                if lv == "MATCH":
+                    report_lines.append(
+                        f"The invoiced amount of {fmt_eur(linv, cur)} matches the expected tariff amount of {fmt_eur(lexp, cur)} "
+                        f"(difference: {fmt_eur(abs_lvar, cur)}, {abs_lpct:.2f}%). This line is approved."
+                    )
+                elif lv == "MISMATCH":
+                    report_lines.append(
+                        f"The vendor invoiced {fmt_eur(linv, cur)}, but the expected amount under the {port} tariff is {fmt_eur(lexp, cur)}. "
+                        f"The difference is {fmt_eur(abs_lvar, cur)} ({abs_lpct:.2f}% {ldir}charged), which exceeds the 1% tolerance."
+                    )
+                elif lv == "UNSUPPORTED":
+                    report_lines.append(
+                        f"The vendor invoiced {fmt_eur(linv, cur)} for this line, but no matching event was found in the SOF to support this charge. "
+                        f"The engine could not calculate an expected amount."
+                    )
+                elif lv == "REVIEW":
+                    report_lines.append(
+                        f"The vendor invoiced {fmt_eur(linv, cur)}. The engine calculated {fmt_eur(lexp, cur)} as expected, "
+                        f"but flagged this line for human review. Reason: {hr_rsn or 'see notes below'}."
+                    )
+
+                report_lines.append(
+                    f"- *How the expected amount was calculated:* {sof_ev}. "
+                    f"Tariff: {tariff_r}. Calculation method: {handler}. Confidence: {cl} ({cs:.0%})."
+                )
+
+                if surcharges:
+                    sc_texts = [f"{s.get('name')} (×{s.get('multiplier')}, {fmt_eur(s.get('amount',0), cur)})" for s in surcharges]
+                    report_lines.append(f"- *Surcharges applied:* {'; '.join(sc_texts)}.")
+
+                if ot:
+                    report_lines.append(f"- *Overtime:* {ot}.")
+
+                if expls:
+                    report_lines.append("- *Possible reasons for the difference:*")
+                    for ex in expls:
+                        report_lines.append(
+                            f"  • {ex.get('description', '')} — "
+                            f"if this applies, the expected amount would be {fmt_eur(ex.get('expected_amount', 0), cur)} "
+                            f"({ex.get('variance_pct', 0):+.2f}%)."
+                        )
+                elif lv == "MISMATCH":
+                    report_lines.append(
+                        "- *No automatic explanation identified.* The officer should contact the vendor or compare against "
+                        "a current tariff sheet to confirm the correct rate."
+                    )
+
+            # summary notes
+            notes = result.get("summary_notes") or []
+            if notes:
+                report_lines.append("\n**Engine notes**")
+                for n in notes:
+                    report_lines.append(f"- {n}")
+
+            st.markdown("\n".join(report_lines))
+
+        st.divider()
+
         # ── 8k. Approve / Escalate ─────────────
         _section_header("Officer Action")
         ba1, ba2 = st.columns(2)
@@ -689,6 +882,9 @@ with tab_verify:
             st.warning("Invoice escalated for human review.")
 
 
+# ══════════════════════════════════════════════
+# TAB 2 — TARIFF REFERENCE
+# ══════════════════════════════════════════════
 # ══════════════════════════════════════════════
 # TAB 2 — OFFICER COMMENTS LOG
 # ══════════════════════════════════════════════

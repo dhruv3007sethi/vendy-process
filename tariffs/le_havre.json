@@ -44,745 +44,745 @@
       }
     }
   },
-  "tariffs": {
+  "rate_table": {
     "TABLE_A_containers_and_car_carriers": [
       {
-        "loa_from": 0,
-        "loa_to": 99.99,
-        "rate": 787.24
+        "dimension_min": 0,
+        "dimension_max": 99.99,
+        "base_rate": 787.24
       },
       {
-        "loa_from": 100,
-        "loa_to": 119.99,
-        "rate": 867.91
+        "dimension_min": 100,
+        "dimension_max": 119.99,
+        "base_rate": 867.91
       },
       {
-        "loa_from": 120,
-        "loa_to": 139.99,
-        "rate": 1117.43
+        "dimension_min": 120,
+        "dimension_max": 139.99,
+        "base_rate": 1117.43
       },
       {
-        "loa_from": 140,
-        "loa_to": 159.99,
-        "rate": 1734.98
+        "dimension_min": 140,
+        "dimension_max": 159.99,
+        "base_rate": 1734.98
       },
       {
-        "loa_from": 160,
-        "loa_to": 179.99,
-        "rate": 2124.53
+        "dimension_min": 160,
+        "dimension_max": 179.99,
+        "base_rate": 2124.53
       },
       {
-        "loa_from": 180,
-        "loa_to": 199.99,
-        "rate": 2459.66
+        "dimension_min": 180,
+        "dimension_max": 199.99,
+        "base_rate": 2459.66
       },
       {
-        "loa_from": 200,
-        "loa_to": 219.99,
-        "rate": 2711.32
+        "dimension_min": 200,
+        "dimension_max": 219.99,
+        "base_rate": 2711.32
       },
       {
-        "loa_from": 220,
-        "loa_to": 239.99,
-        "rate": 2845.99
+        "dimension_min": 220,
+        "dimension_max": 239.99,
+        "base_rate": 2845.99
       },
       {
-        "loa_from": 240,
-        "loa_to": 259.99,
-        "rate": 3063.75
+        "dimension_min": 240,
+        "dimension_max": 259.99,
+        "base_rate": 3063.75
       },
       {
-        "loa_from": 260,
-        "loa_to": 279.99,
-        "rate": 3281.04
+        "dimension_min": 260,
+        "dimension_max": 279.99,
+        "base_rate": 3281.04
       },
       {
-        "loa_from": 280,
-        "loa_to": 299.99,
-        "rate": 3605.06
+        "dimension_min": 280,
+        "dimension_max": 299.99,
+        "base_rate": 3605.06
       },
       {
-        "loa_from": 300,
-        "loa_to": 319.99,
-        "rate": 3931.01
+        "dimension_min": 300,
+        "dimension_max": 319.99,
+        "base_rate": 3931.01
       },
       {
-        "loa_from": 320,
-        "loa_to": 339.99,
-        "rate": 4472.97
+        "dimension_min": 320,
+        "dimension_max": 339.99,
+        "base_rate": 4472.97
       },
       {
-        "loa_from": 340,
-        "loa_to": 359.99,
-        "rate": 4870.87
+        "dimension_min": 340,
+        "dimension_max": 359.99,
+        "base_rate": 4870.87
       },
       {
-        "loa_from": 360,
-        "loa_to": 379.99,
-        "rate": 5304.82
+        "dimension_min": 360,
+        "dimension_max": 379.99,
+        "base_rate": 5304.82
       },
       {
-        "loa_from": 380,
-        "loa_to": 399.99,
-        "rate": 5738.75
+        "dimension_min": 380,
+        "dimension_max": 399.99,
+        "base_rate": 5738.75
       },
       {
-        "loa_from": 400,
-        "loa_to": 419.99,
-        "rate": 6172.73
+        "dimension_min": 400,
+        "dimension_max": 419.99,
+        "base_rate": 6172.73
       },
       {
-        "loa_from": 420,
-        "loa_to": 439.99,
-        "rate": 6606.69
+        "dimension_min": 420,
+        "dimension_max": 439.99,
+        "base_rate": 6606.69
       },
       {
-        "loa_from": 440,
-        "loa_to": 999.99,
-        "rate": 7040.67
+        "dimension_min": 440,
+        "dimension_max": 999.99,
+        "base_rate": 7040.67
       }
     ],
     "TABLE_B_all_other_vessel_types": [
       {
-        "loa_from": 0,
-        "loa_to": 99.99,
+        "dimension_min": 0,
+        "dimension_max": 99.99,
         "max_breadth": 17.2,
         "max_draft": 7.6,
-        "rate": 751.61
+        "base_rate": 751.61
       },
       {
-        "loa_from": 100,
-        "loa_to": 111.99,
+        "dimension_min": 100,
+        "dimension_max": 111.99,
         "max_breadth": 18.8,
         "max_draft": 8.2,
-        "rate": 1063.88
+        "base_rate": 1063.88
       },
       {
-        "loa_from": 112,
-        "loa_to": 119.99,
+        "dimension_min": 112,
+        "dimension_max": 119.99,
         "max_breadth": 19.6,
         "max_draft": 8.6,
-        "rate": 1230.15
+        "base_rate": 1230.15
       },
       {
-        "loa_from": 120,
-        "loa_to": 126.99,
+        "dimension_min": 120,
+        "dimension_max": 126.99,
         "max_breadth": 20.6,
         "max_draft": 8.9,
-        "rate": 1395.39
+        "base_rate": 1395.39
       },
       {
-        "loa_from": 127,
-        "loa_to": 133.99,
+        "dimension_min": 127,
+        "dimension_max": 133.99,
         "max_breadth": 21.6,
         "max_draft": 9.4,
-        "rate": 1561.01
+        "base_rate": 1561.01
       },
       {
-        "loa_from": 134,
-        "loa_to": 136.99,
+        "dimension_min": 134,
+        "dimension_max": 136.99,
         "max_breadth": 22.0,
         "max_draft": 9.5,
-        "rate": 1724.74
+        "base_rate": 1724.74
       },
       {
-        "loa_from": 137,
-        "loa_to": 144.99,
+        "dimension_min": 137,
+        "dimension_max": 144.99,
         "max_breadth": 23.0,
         "max_draft": 9.9,
-        "rate": 1808.2
+        "base_rate": 1808.2
       },
       {
-        "loa_from": 145,
-        "loa_to": 149.99,
+        "dimension_min": 145,
+        "dimension_max": 149.99,
         "max_breadth": 23.8,
         "max_draft": 10.2,
-        "rate": 2015.24
+        "base_rate": 2015.24
       },
       {
-        "loa_from": 150,
-        "loa_to": 159.99,
+        "dimension_min": 150,
+        "dimension_max": 159.99,
         "max_breadth": 25.5,
         "max_draft": 10.8,
-        "rate": 2104.02
+        "base_rate": 2104.02
       },
       {
-        "loa_from": 160,
-        "loa_to": 169.99,
+        "dimension_min": 160,
+        "dimension_max": 169.99,
         "max_breadth": 26.7,
         "max_draft": 11.3,
-        "rate": 2314.71
+        "base_rate": 2314.71
       },
       {
-        "loa_from": 170,
-        "loa_to": 179.99,
+        "dimension_min": 170,
+        "dimension_max": 179.99,
         "max_breadth": 28.0,
         "max_draft": 11.8,
-        "rate": 2482.49
+        "base_rate": 2482.49
       },
       {
-        "loa_from": 180,
-        "loa_to": 189.99,
+        "dimension_min": 180,
+        "dimension_max": 189.99,
         "max_breadth": 29.2,
         "max_draft": 12.3,
-        "rate": 2648.36
+        "base_rate": 2648.36
       },
       {
-        "loa_from": 190,
-        "loa_to": 199.99,
+        "dimension_min": 190,
+        "dimension_max": 199.99,
         "max_breadth": 30.7,
         "max_draft": 12.8,
-        "rate": 2780.7
+        "base_rate": 2780.7
       },
       {
-        "loa_from": 200,
-        "loa_to": 217.99,
+        "dimension_min": 200,
+        "dimension_max": 217.99,
         "max_breadth": 33.8,
         "max_draft": 13.7,
-        "rate": 2898.76
+        "base_rate": 2898.76
       },
       {
-        "loa_from": 218,
-        "loa_to": 236.99,
+        "dimension_min": 218,
+        "dimension_max": 236.99,
         "max_breadth": 37.4,
         "max_draft": 14.8,
-        "rate": 3032.99
+        "base_rate": 3032.99
       },
       {
-        "loa_from": 237,
-        "loa_to": 255.99,
+        "dimension_min": 237,
+        "dimension_max": 255.99,
         "max_breadth": 40.4,
         "max_draft": 15.8,
-        "rate": 3249.65
+        "base_rate": 3249.65
       },
       {
-        "loa_from": 256,
-        "loa_to": 273.99,
+        "dimension_min": 256,
+        "dimension_max": 273.99,
         "max_breadth": 43.4,
         "max_draft": 16.8,
-        "rate": 3465.08
+        "base_rate": 3465.08
       },
       {
-        "loa_from": 274,
-        "loa_to": 288.99,
+        "dimension_min": 274,
+        "dimension_max": 288.99,
         "max_breadth": 46.0,
         "max_draft": 17.6,
-        "rate": 3680.21
+        "base_rate": 3680.21
       },
       {
-        "loa_from": 289,
-        "loa_to": 299.99,
+        "dimension_min": 289,
+        "dimension_max": 299.99,
         "max_breadth": 48.0,
         "max_draft": 18.3,
-        "rate": 3896.21
+        "base_rate": 3896.21
       },
       {
-        "loa_from": 300,
-        "loa_to": 307.99,
+        "dimension_min": 300,
+        "dimension_max": 307.99,
         "max_breadth": 49.2,
         "max_draft": 18.8,
-        "rate": 4112.88
+        "base_rate": 4112.88
       },
       {
-        "loa_from": 308,
-        "loa_to": 315.99,
+        "dimension_min": 308,
+        "dimension_max": 315.99,
         "max_breadth": 50.8,
         "max_draft": 19.3,
-        "rate": 4329.55
+        "base_rate": 4329.55
       },
       {
-        "loa_from": 316,
-        "loa_to": 321.99,
+        "dimension_min": 316,
+        "dimension_max": 321.99,
         "max_breadth": 51.8,
         "max_draft": 19.7,
-        "rate": 4544.09
+        "base_rate": 4544.09
       },
       {
-        "loa_from": 322,
-        "loa_to": 328.99,
+        "dimension_min": 322,
+        "dimension_max": 328.99,
         "max_breadth": 53.0,
         "max_draft": 20.1,
-        "rate": 4761.57
+        "base_rate": 4761.57
       },
       {
-        "loa_from": 329,
-        "loa_to": 336.99,
+        "dimension_min": 329,
+        "dimension_max": 336.99,
         "max_breadth": 54.4,
         "max_draft": 20.6,
-        "rate": 4977.79
+        "base_rate": 4977.79
       },
       {
-        "loa_from": 337,
-        "loa_to": 345.99,
+        "dimension_min": 337,
+        "dimension_max": 345.99,
         "max_breadth": 56.0,
         "max_draft": 21.2,
-        "rate": 5192.96
+        "base_rate": 5192.96
       },
       {
-        "loa_from": 346,
-        "loa_to": 354.99,
+        "dimension_min": 346,
+        "dimension_max": 354.99,
         "max_breadth": 57.2,
         "max_draft": 21.6,
-        "rate": 5410.9
+        "base_rate": 5410.9
       },
       {
-        "loa_from": 355,
-        "loa_to": 362.99,
+        "dimension_min": 355,
+        "dimension_max": 362.99,
         "max_breadth": 58.4,
         "max_draft": 22.0,
-        "rate": 5627.33
+        "base_rate": 5627.33
       },
       {
-        "loa_from": 363,
-        "loa_to": 370.99,
+        "dimension_min": 363,
+        "dimension_max": 370.99,
         "max_breadth": 59.6,
         "max_draft": 22.4,
-        "rate": 5843.82
+        "base_rate": 5843.82
       },
       {
-        "loa_from": 371,
-        "loa_to": 378.99,
+        "dimension_min": 371,
+        "dimension_max": 378.99,
         "max_breadth": 60.8,
         "max_draft": 22.8,
-        "rate": 6061.52
+        "base_rate": 6061.52
       },
       {
-        "loa_from": 379,
-        "loa_to": 386.99,
+        "dimension_min": 379,
+        "dimension_max": 386.99,
         "max_breadth": 62.0,
         "max_draft": 23.2,
-        "rate": 6277.34
+        "base_rate": 6277.34
       },
       {
-        "loa_from": 387,
-        "loa_to": 394.99,
+        "dimension_min": 387,
+        "dimension_max": 394.99,
         "max_breadth": 63.2,
         "max_draft": 23.6,
-        "rate": 6494.18
+        "base_rate": 6494.18
       },
       {
-        "loa_from": 395,
-        "loa_to": 402.99,
+        "dimension_min": 395,
+        "dimension_max": 402.99,
         "max_breadth": 64.4,
         "max_draft": 24.0,
-        "rate": 6711.71
+        "base_rate": 6711.71
       },
       {
-        "loa_from": 403,
-        "loa_to": 410.99,
+        "dimension_min": 403,
+        "dimension_max": 410.99,
         "max_breadth": 65.6,
         "max_draft": 24.4,
-        "rate": 6927.76
+        "base_rate": 6927.76
       },
       {
-        "loa_from": 411,
-        "loa_to": 418.99,
+        "dimension_min": 411,
+        "dimension_max": 418.99,
         "max_breadth": 66.8,
         "max_draft": 24.8,
-        "rate": 7145.01
+        "base_rate": 7145.01
       },
       {
-        "loa_from": 419,
-        "loa_to": 426.99,
+        "dimension_min": 419,
+        "dimension_max": 426.99,
         "max_breadth": 68.0,
         "max_draft": 25.2,
-        "rate": 7361.04
+        "base_rate": 7361.04
       },
       {
-        "loa_from": 427,
-        "loa_to": 999.99,
+        "dimension_min": 427,
+        "dimension_max": 999.99,
         "max_breadth": null,
         "max_draft": null,
-        "rate": 7577.93
+        "base_rate": 7577.93
       }
     ],
     "TABLE_C_antifer_terminal_tankers": [
       {
-        "loa_from": 0,
-        "loa_to": 159.99,
+        "dimension_min": 0,
+        "dimension_max": 159.99,
         "max_breadth": 25.5,
         "max_draft": 10.8,
-        "rate": 2104.02
+        "base_rate": 2104.02
       },
       {
-        "loa_from": 160,
-        "loa_to": 169.99,
+        "dimension_min": 160,
+        "dimension_max": 169.99,
         "max_breadth": 26.7,
         "max_draft": 11.3,
-        "rate": 2314.71
+        "base_rate": 2314.71
       },
       {
-        "loa_from": 170,
-        "loa_to": 179.99,
+        "dimension_min": 170,
+        "dimension_max": 179.99,
         "max_breadth": 28.0,
         "max_draft": 11.8,
-        "rate": 2482.49
+        "base_rate": 2482.49
       },
       {
-        "loa_from": 180,
-        "loa_to": 189.99,
+        "dimension_min": 180,
+        "dimension_max": 189.99,
         "max_breadth": 29.2,
         "max_draft": 12.3,
-        "rate": 2648.36
+        "base_rate": 2648.36
       },
       {
-        "loa_from": 190,
-        "loa_to": 199.99,
+        "dimension_min": 190,
+        "dimension_max": 199.99,
         "max_breadth": 30.7,
         "max_draft": 12.8,
-        "rate": 2780.7
+        "base_rate": 2780.7
       },
       {
-        "loa_from": 200,
-        "loa_to": 217.99,
+        "dimension_min": 200,
+        "dimension_max": 217.99,
         "max_breadth": 33.8,
         "max_draft": 13.7,
-        "rate": 2898.76
+        "base_rate": 2898.76
       },
       {
-        "loa_from": 218,
-        "loa_to": 236.99,
+        "dimension_min": 218,
+        "dimension_max": 236.99,
         "max_breadth": 37.4,
         "max_draft": 14.8,
-        "rate": 3032.99
+        "base_rate": 3032.99
       },
       {
-        "loa_from": 237,
-        "loa_to": 256.99,
+        "dimension_min": 237,
+        "dimension_max": 256.99,
         "max_breadth": 40.4,
         "max_draft": 15.8,
-        "rate": 3249.65
+        "base_rate": 3249.65
       },
       {
-        "loa_from": 257,
-        "loa_to": 267.99,
+        "dimension_min": 257,
+        "dimension_max": 267.99,
         "max_breadth": 46.0,
         "max_draft": 17.6,
-        "rate": 4747.49
+        "base_rate": 4747.49
       },
       {
-        "loa_from": 268,
-        "loa_to": 275.99,
+        "dimension_min": 268,
+        "dimension_max": 275.99,
         "max_breadth": 47.0,
         "max_draft": 17.9,
-        "rate": 5227.77
+        "base_rate": 5227.77
       },
       {
-        "loa_from": 276,
-        "loa_to": 283.99,
+        "dimension_min": 276,
+        "dimension_max": 283.99,
         "max_breadth": 47.5,
         "max_draft": 18.2,
-        "rate": 5655.74
+        "base_rate": 5655.74
       },
       {
-        "loa_from": 284,
-        "loa_to": 291.99,
+        "dimension_min": 284,
+        "dimension_max": 291.99,
         "max_breadth": 48.0,
         "max_draft": 18.5,
-        "rate": 6009.89
+        "base_rate": 6009.89
       },
       {
-        "loa_from": 292,
-        "loa_to": 299.99,
+        "dimension_min": 292,
+        "dimension_max": 299.99,
         "max_breadth": 48.5,
         "max_draft": 18.8,
-        "rate": 6364.01
+        "base_rate": 6364.01
       },
       {
-        "loa_from": 300,
-        "loa_to": 307.99,
+        "dimension_min": 300,
+        "dimension_max": 307.99,
         "max_breadth": 49.2,
         "max_draft": 19.0,
-        "rate": 6717.91
+        "base_rate": 6717.91
       },
       {
-        "loa_from": 308,
-        "loa_to": 315.99,
+        "dimension_min": 308,
+        "dimension_max": 315.99,
         "max_breadth": 50.8,
         "max_draft": 19.3,
-        "rate": 7072.91
+        "base_rate": 7072.91
       },
       {
-        "loa_from": 316,
-        "loa_to": 321.99,
+        "dimension_min": 316,
+        "dimension_max": 321.99,
         "max_breadth": 51.8,
         "max_draft": 19.7,
-        "rate": 7425.09
+        "base_rate": 7425.09
       },
       {
-        "loa_from": 322,
-        "loa_to": 328.99,
+        "dimension_min": 322,
+        "dimension_max": 328.99,
         "max_breadth": 53.0,
         "max_draft": 20.1,
-        "rate": 7780.71
+        "base_rate": 7780.71
       },
       {
-        "loa_from": 329,
-        "loa_to": 336.99,
+        "dimension_min": 329,
+        "dimension_max": 336.99,
         "max_breadth": 54.4,
         "max_draft": 20.6,
-        "rate": 8134.38
+        "base_rate": 8134.38
       },
       {
-        "loa_from": 337,
-        "loa_to": 345.99,
+        "dimension_min": 337,
+        "dimension_max": 345.99,
         "max_breadth": 56.0,
         "max_draft": 21.2,
-        "rate": 8490.23
+        "base_rate": 8490.23
       },
       {
-        "loa_from": 346,
-        "loa_to": 354.99,
+        "dimension_min": 346,
+        "dimension_max": 354.99,
         "max_breadth": 57.2,
         "max_draft": 21.6,
-        "rate": 9303.71
+        "base_rate": 9303.71
       },
       {
-        "loa_from": 355,
-        "loa_to": 362.99,
+        "dimension_min": 355,
+        "dimension_max": 362.99,
         "max_breadth": 58.4,
         "max_draft": 22.0,
-        "rate": 9677.06
+        "base_rate": 9677.06
       },
       {
-        "loa_from": 363,
-        "loa_to": 370.99,
+        "dimension_min": 363,
+        "dimension_max": 370.99,
         "max_breadth": 59.6,
         "max_draft": 22.4,
-        "rate": 10050.81
+        "base_rate": 10050.81
       },
       {
-        "loa_from": 371,
-        "loa_to": 378.99,
+        "dimension_min": 371,
+        "dimension_max": 378.99,
         "max_breadth": 60.8,
         "max_draft": 22.8,
-        "rate": 10422.87
+        "base_rate": 10422.87
       },
       {
-        "loa_from": 379,
-        "loa_to": 386.99,
+        "dimension_min": 379,
+        "dimension_max": 386.99,
         "max_breadth": 62.0,
         "max_draft": 23.2,
-        "rate": 10797.48
+        "base_rate": 10797.48
       },
       {
-        "loa_from": 387,
-        "loa_to": 394.99,
+        "dimension_min": 387,
+        "dimension_max": 394.99,
         "max_breadth": 63.2,
         "max_draft": 23.6,
-        "rate": 11171.02
+        "base_rate": 11171.02
       },
       {
-        "loa_from": 395,
-        "loa_to": 402.99,
+        "dimension_min": 395,
+        "dimension_max": 402.99,
         "max_breadth": 64.4,
         "max_draft": 24.0,
-        "rate": 11543.93
+        "base_rate": 11543.93
       },
       {
-        "loa_from": 403,
-        "loa_to": 410.99,
+        "dimension_min": 403,
+        "dimension_max": 410.99,
         "max_breadth": 65.6,
         "max_draft": 24.4,
-        "rate": 11191.792
+        "base_rate": 11191.792
       },
       {
-        "loa_from": 411,
-        "loa_to": 418.99,
+        "dimension_min": 411,
+        "dimension_max": 418.99,
         "max_breadth": 66.8,
         "max_draft": 24.8,
-        "rate": 12290.81
+        "base_rate": 12290.81
       },
       {
-        "loa_from": 419,
-        "loa_to": 426.99,
+        "dimension_min": 419,
+        "dimension_max": 426.99,
         "max_breadth": 68.0,
         "max_draft": 25.2,
-        "rate": 12664.82
+        "base_rate": 12664.82
       },
       {
-        "loa_from": 427,
-        "loa_to": 434.99,
+        "dimension_min": 427,
+        "dimension_max": 434.99,
         "max_breadth": 69.2,
         "max_draft": 25.6,
-        "rate": 13037.94
+        "base_rate": 13037.94
       },
       {
-        "loa_from": 435,
-        "loa_to": 442.99,
+        "dimension_min": 435,
+        "dimension_max": 442.99,
         "max_breadth": 70.4,
         "max_draft": 26.0,
-        "rate": 13411.04
+        "base_rate": 13411.04
       },
       {
-        "loa_from": 443,
-        "loa_to": 450.99,
+        "dimension_min": 443,
+        "dimension_max": 450.99,
         "max_breadth": 71.6,
         "max_draft": 26.4,
-        "rate": 13784.16
+        "base_rate": 13784.16
       },
       {
-        "loa_from": 451,
-        "loa_to": 458.99,
+        "dimension_min": 451,
+        "dimension_max": 458.99,
         "max_breadth": 72.8,
         "max_draft": 26.8,
-        "rate": 14157.93
+        "base_rate": 14157.93
       },
       {
-        "loa_from": 459,
-        "loa_to": 999.99,
+        "dimension_min": 459,
+        "dimension_max": 999.99,
         "max_breadth": null,
         "max_draft": null,
-        "rate": 14530.43
+        "base_rate": 14530.43
       }
     ],
     "TABLE_D_bougainville_terminal_lng": [
       {
-        "loa_from": 0,
-        "loa_to": 159.99,
+        "dimension_min": 0,
+        "dimension_max": 159.99,
         "max_breadth": 25.5,
         "max_draft": 10.8,
-        "rate": 2651.08
+        "base_rate": 2651.08
       },
       {
-        "loa_from": 160,
-        "loa_to": 169.99,
+        "dimension_min": 160,
+        "dimension_max": 169.99,
         "max_breadth": 26.7,
         "max_draft": 11.3,
-        "rate": 2916.53
+        "base_rate": 2916.53
       },
       {
-        "loa_from": 170,
-        "loa_to": 179.99,
+        "dimension_min": 170,
+        "dimension_max": 179.99,
         "max_breadth": 28.0,
         "max_draft": 11.8,
-        "rate": 3127.93
+        "base_rate": 3127.93
       },
       {
-        "loa_from": 180,
-        "loa_to": 189.99,
+        "dimension_min": 180,
+        "dimension_max": 189.99,
         "max_breadth": 29.2,
         "max_draft": 12.3,
-        "rate": 3336.93
+        "base_rate": 3336.93
       },
       {
-        "loa_from": 190,
-        "loa_to": 199.99,
+        "dimension_min": 190,
+        "dimension_max": 199.99,
         "max_breadth": 30.7,
         "max_draft": 12.8,
-        "rate": 3503.67
+        "base_rate": 3503.67
       },
       {
-        "loa_from": 200,
-        "loa_to": 217.99,
+        "dimension_min": 200,
+        "dimension_max": 217.99,
         "max_breadth": 33.8,
         "max_draft": 13.7,
-        "rate": 3652.44
+        "base_rate": 3652.44
       },
       {
-        "loa_from": 218,
-        "loa_to": 236.99,
+        "dimension_min": 218,
+        "dimension_max": 236.99,
         "max_breadth": 37.4,
         "max_draft": 14.8,
-        "rate": 3821.57
+        "base_rate": 3821.57
       },
       {
-        "loa_from": 237,
-        "loa_to": 256.99,
+        "dimension_min": 237,
+        "dimension_max": 256.99,
         "max_breadth": 40.4,
         "max_draft": 15.8,
-        "rate": 4094.56
+        "base_rate": 4094.56
       },
       {
-        "loa_from": 257,
-        "loa_to": 267.99,
+        "dimension_min": 257,
+        "dimension_max": 267.99,
         "max_breadth": 46.0,
         "max_draft": 17.6,
-        "rate": 5981.83
+        "base_rate": 5981.83
       },
       {
-        "loa_from": 268,
-        "loa_to": 275.99,
+        "dimension_min": 268,
+        "dimension_max": 275.99,
         "max_breadth": 47.0,
         "max_draft": 17.9,
-        "rate": 6586.98
+        "base_rate": 6586.98
       },
       {
-        "loa_from": 276,
-        "loa_to": 283.99,
+        "dimension_min": 276,
+        "dimension_max": 283.99,
         "max_breadth": 47.5,
         "max_draft": 18.2,
-        "rate": 7126.23
+        "base_rate": 7126.23
       },
       {
-        "loa_from": 284,
-        "loa_to": 291.99,
+        "dimension_min": 284,
+        "dimension_max": 291.99,
         "max_breadth": 48.0,
         "max_draft": 18.5,
-        "rate": 7572.45
+        "base_rate": 7572.45
       },
       {
-        "loa_from": 292,
-        "loa_to": 299.99,
+        "dimension_min": 292,
+        "dimension_max": 299.99,
         "max_breadth": 48.5,
         "max_draft": 18.8,
-        "rate": 8018.65
+        "base_rate": 8018.65
       },
       {
-        "loa_from": 300,
-        "loa_to": 307.99,
+        "dimension_min": 300,
+        "dimension_max": 307.99,
         "max_breadth": 49.2,
         "max_draft": 19.0,
-        "rate": 8464.56
+        "base_rate": 8464.56
       },
       {
-        "loa_from": 308,
-        "loa_to": 315.99,
+        "dimension_min": 308,
+        "dimension_max": 315.99,
         "max_breadth": 50.8,
         "max_draft": 19.3,
-        "rate": 8911.86
+        "base_rate": 8911.86
       },
       {
-        "loa_from": 316,
-        "loa_to": 321.99,
+        "dimension_min": 316,
+        "dimension_max": 321.99,
         "max_breadth": 51.8,
         "max_draft": 19.7,
-        "rate": 9355.62
+        "base_rate": 9355.62
       },
       {
-        "loa_from": 322,
-        "loa_to": 328.99,
+        "dimension_min": 322,
+        "dimension_max": 328.99,
         "max_breadth": 53.0,
         "max_draft": 20.1,
-        "rate": 9803.69
+        "base_rate": 9803.69
       },
       {
-        "loa_from": 329,
-        "loa_to": 336.99,
+        "dimension_min": 329,
+        "dimension_max": 336.99,
         "max_breadth": 54.4,
         "max_draft": 20.6,
-        "rate": 10249.32
+        "base_rate": 10249.32
       },
       {
-        "loa_from": 337,
-        "loa_to": 345.99,
+        "dimension_min": 337,
+        "dimension_max": 345.99,
         "max_breadth": 56.0,
         "max_draft": 21.2,
-        "rate": 10697.68
+        "base_rate": 10697.68
       },
       {
-        "loa_from": 346,
-        "loa_to": 354.99,
+        "dimension_min": 346,
+        "dimension_max": 354.99,
         "max_breadth": 57.2,
         "max_draft": 21.6,
-        "rate": 11722.68
+        "base_rate": 11722.68
       },
       {
-        "loa_from": 355,
-        "loa_to": 362.99,
+        "dimension_min": 355,
+        "dimension_max": 362.99,
         "max_breadth": 58.4,
         "max_draft": 22.0,
-        "rate": 12193.1
+        "base_rate": 12193.1
       }
     ]
   },

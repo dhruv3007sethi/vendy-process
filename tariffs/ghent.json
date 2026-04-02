@@ -19,7 +19,7 @@
       "description": "Applies when total assistance time exceeds the max_duration_hrs specified per route"
     }
   },
-  "tariffs": {
+  "rate_table": {
     "tariff_a_operational_engine": {
       "description": "Per move and for each tug employed",
       "flushing_area_north": [

@@ -1,35 +1,37 @@
 """
 core/pdf_extractor.py
 Extracts text from invoices/SOFs.
-- Tries pdfplumber first (text-based PDFs).
-- Falls back to OCR (pytesseract) for image-based PDFs.
+- Tries pdfplumber first (text-based PDFs) — free, exact, instant.
+- Falls back to Mistral OCR API for image-based / scanned PDFs.
+
+Tesseract is no longer used. Mistral OCR handles multilingual text
+automatically so no language code needs to be supplied by the caller.
 """
 
 import os
+import base64
 import logging
 from pathlib import Path
-from typing import Dict, Optional, Any
+from typing import Dict, Any
 
 import pdfplumber
-import pytesseract
-from PIL import Image
-import fitz  # PyMuPDF
-
-# Load environment variables
+import fitz  # PyMuPDF — retained for page-count fallback only
 from dotenv import load_dotenv
+
 load_dotenv()
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Set Tesseract path globally
-TESSERACT_PATH = os.getenv("TESSERACT_PATH")
-if TESSERACT_PATH:
-    pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
+MISTRAL_API_KEY = os.getenv("MISTRAL_API_KEY")
+
+
+# ---------------------------------------------------------------------------
+# PRIMARY PATH — pdfplumber (text PDFs)
+# ---------------------------------------------------------------------------
 
 def extract_text_pdfplumber(pdf_path: Path) -> str:
-    """Extract text from a text-based PDF using pdfplumber."""
+    """Extract text from a text-layer PDF using pdfplumber."""
     text = ""
     try:
         with pdfplumber.open(pdf_path) as pdf:
@@ -41,50 +43,85 @@ def extract_text_pdfplumber(pdf_path: Path) -> str:
         logger.error(f"PDF is password protected: {pdf_path}")
         raise PermissionError(f"PDF is password protected and cannot be read: {pdf_path}")
     except Exception as e:
-        # Log the error but allow the fallback mechanism to handle it
-        logger.warning(f"pdfplumber encountered an issue (file might be corrupt/image-based): {e}")
-        return "" # Return empty string to trigger OCR fallback
+        logger.warning(f"pdfplumber encountered an issue (may be image-based): {e}")
+        return ""
     return text.strip()
 
-def extract_text_ocr(pdf_path: Path, lang: str = "eng") -> str:
-    """Extract text from an image-based PDF using OCR."""
-    text = ""
-    doc = fitz.open(pdf_path)
-    
+
+# ---------------------------------------------------------------------------
+# FALLBACK PATH — Mistral OCR (scanned / image-based PDFs)
+# ---------------------------------------------------------------------------
+
+def extract_text_mistral_ocr(pdf_path: Path, api_key: str) -> str:
+    """
+    Extract text from a scanned PDF using the Mistral OCR API.
+
+    Sends the PDF as base64 to mistral-ocr-latest.
+    Returns concatenated markdown from all pages, preserving table structure.
+    Multilingual support is built into the model — no language param needed.
+    """
     try:
-        for page in doc:
-            # Render page to image at 300 DPI
-            mat = fitz.Matrix(300 / 72, 300 / 72)
-            pix = page.get_pixmap(matrix=mat)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            
-            # Perform OCR
-            page_text = pytesseract.image_to_string(img, lang=lang)
-            text += page_text + "\n"
-    finally:
-        doc.close()
-        
-    return text.strip()
+        from mistralai import Mistral
+    except ImportError:
+        raise ImportError(
+            "mistralai package is not installed. Run: pip install mistralai"
+        )
+
+    with open(pdf_path, "rb") as f:
+        pdf_b64 = base64.b64encode(f.read()).decode()
+
+    client = Mistral(api_key=api_key)
+    logger.info(f"Calling Mistral OCR API for: {pdf_path.name}")
+
+    response = client.ocr.process(
+        model="mistral-ocr-latest",
+        document={
+            "type": "document_url",
+            "document_url": f"data:application/pdf;base64,{pdf_b64}",
+        },
+        table_format="markdown",
+    )
+
+    pages = [page.markdown for page in response.pages if page.markdown]
+    return "\n\n".join(pages).strip()
+
+
+# ---------------------------------------------------------------------------
+# MAIN ENTRY POINT
+# ---------------------------------------------------------------------------
 
 def extract_text(
-    pdf_path: str, 
-    min_text_length: int = 50, 
-    ocr_lang: str = "eng"
+    pdf_path: str,
+    min_text_length: int = 50,
 ) -> Dict[str, Any]:
     """
-    Main extraction function.
-    
+    Extract text from any invoice or SOF PDF.
+
+    Strategy:
+      1. pdfplumber  — works on all text-layer PDFs, zero cost.
+      2. Mistral OCR — fires only when pdfplumber returns < min_text_length
+                       chars (i.e. the PDF is scanned / image-based).
+
     Args:
-        pdf_path (str): Path to the PDF file.
-        min_text_length (int): Threshold to decide if pdfplumber found enough text.
-        ocr_lang (str): Language code for Tesseract (e.g., 'eng', 'spa+eng').
-                        The MAIN APP should determine this based on Port/Country.
-        
+        pdf_path:        Path to the PDF file.
+        min_text_length: Character threshold below which OCR is triggered.
+                         Default 50: a real text invoice produces hundreds of
+                         chars; a scanned image produces 0-5.
+
     Returns:
-        dict: { 'text': str, 'method': str, 'pages': int, 'path': str }
+        {
+            "text":   str,   # extracted text (markdown if OCR path)
+            "method": str,   # "pdfplumber" | "mistral_ocr"
+            "pages":  int,   # page count
+            "path":   str,   # absolute path to the file
+        }
+
+    Raises:
+        FileNotFoundError  — PDF does not exist.
+        PermissionError    — PDF is password-protected.
+        EnvironmentError   — Scanned PDF but MISTRAL_API_KEY not set.
     """
     pdf_path = Path(pdf_path)
-    
     if not pdf_path.exists():
         raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
@@ -94,94 +131,62 @@ def extract_text(
         text = extract_text_pdfplumber(pdf_path)
         method = "pdfplumber"
     except PermissionError:
-        # Re-raise password errors immediately so the app can alert the user
         raise
     except Exception as e:
-        # If pdfplumber crashes hard, treat as empty text and try OCR
-        logger.warning(f"pdfplumber failed unexpectedly, switching to OCR. Error: {e}")
+        logger.warning(f"pdfplumber failed unexpectedly, switching to Mistral OCR. Error: {e}")
         text = ""
-        method = "ocr"
+        method = "mistral_ocr"
 
-    # 2. Check if text is too short (likely scanned/image-based)
+    # 2. Too little text — PDF is image-based, invoke Mistral OCR
     if len(text) < min_text_length:
-        logger.info(f"Text too short ({len(text)} chars), switching to OCR ({ocr_lang})...")
-        text = extract_text_ocr(pdf_path, lang=ocr_lang)
-        method = "ocr"
+        api_key = MISTRAL_API_KEY
+        if not api_key:
+            raise EnvironmentError(
+                f"PDF '{pdf_path.name}' appears to be scanned (only {len(text)} chars extracted "
+                f"by pdfplumber), but MISTRAL_API_KEY is not set. "
+                f"Add MISTRAL_API_KEY=<your_key> to your .env file to enable OCR for scanned PDFs."
+            )
+        logger.info(f"Text too short ({len(text)} chars) — switching to Mistral OCR...")
+        text = extract_text_mistral_ocr(pdf_path, api_key)
+        method = "mistral_ocr"
 
-    # 3. Get page count (with safe fallback)
+    # 3. Page count (pdfplumber primary, fitz fallback)
     page_count = 0
     try:
-        # First attempt: pdfplumber
         with pdfplumber.open(pdf_path) as pdf:
             page_count = len(pdf.pages)
     except Exception:
-        logger.warning("pdfplumber failed to count pages. Trying fitz fallback...")
         try:
-            # Second attempt: fitz (more robust for some corrupt files)
             doc = fitz.open(pdf_path)
             page_count = doc.page_count
             doc.close()
         except Exception as e:
-            # If both fail, log it and default to 0. Don't crash the whole process.
             logger.error(f"Failed to count pages with both libraries: {e}")
-            page_count = 0
 
     return {
-        "text": text,
+        "text":   text,
         "method": method,
-        "pages": page_count,
-        "path": str(pdf_path)
+        "pages":  page_count,
+        "path":   str(pdf_path),
     }
 
-# ── Logic to simulate the "Main App" handling ───────────────────────
-def get_ocr_lang_for_port(port_name: str) -> str:
-    """
-    Example of how the Main App decides the language.
-    This function would live in your main application logic, not here.
-    """
-    port_name = port_name.lower()
-    if "algeciras" in port_name or "ceuta" in port_name or "valencia" in port_name:
-        return "spa+eng"
-    elif "barcelona" in port_name:
-        return "spa+eng+cat" # Catalan support example
-    elif "tanger" in port_name:
-        return "fra+ara+eng" # French/Arabic/English example
-    else:
-        return "eng" # Default fallback
 
-# ── Quick test ──────────────────────────────────────────────────────
+# ---------------------------------------------------------------------------
+# CLI — quick test
+# ---------------------------------------------------------------------------
+
 if __name__ == "__main__":
     import sys
-    
+
     if len(sys.argv) < 2:
-        print("Usage: python core/pdf_extractor.py <path_to_pdf> [port_name]")
-        print("\nRunning self-test...")
-        print(f"Tesseract Path: {TESSERACT_PATH}")
-        try:
-            print(f"Tesseract Version: {pytesseract.get_tesseract_version()}")
-            print("✅ Setup verified")
-        except Exception as e:
-            print(f"❌ Tesseract Error: {e}")
+        print("Usage: python core/pdf_extractor.py <path_to_pdf>")
+        print(f"\nMISTRAL_API_KEY set: {'yes' if MISTRAL_API_KEY else 'NO — scanned PDFs will fail'}")
     else:
         try:
-            pdf_file = sys.argv[1]
-            # Simulating the Main App logic:
-            # If a port is provided as a 2nd argument, use it to set language.
-            # Otherwise, default to English.
-            port_arg = sys.argv[2] if len(sys.argv) > 2 else "Default"
-            
-            ocr_language = get_ocr_lang_for_port(port_arg)
-            
-            print(f"--- Processing for Port: {port_arg} (OCR Lang: {ocr_language}) ---")
-            
-            result = extract_text(pdf_file, ocr_lang=ocr_language)
-            
-            print(f"Method used : {result['method']}")
-            print(f"Pages       : {result['pages']}")
-            print(f"Text length : {len(result['text'])} chars")
+            result = extract_text(sys.argv[1])
+            print(f"Method : {result['method']}")
+            print(f"Pages  : {result['pages']}")
+            print(f"Length : {len(result['text'])} chars")
             print(f"\n--- First 500 chars ---\n{result['text'][:500]}")
-            
         except Exception as e:
-            print(f"Failed to process file: {e}")
-
-            
+            print(f"Failed: {e}")

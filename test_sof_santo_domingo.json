@@ -1,0 +1,33 @@
+{
+  "vessel": {
+    "name": "SILVER GINNY",
+    "gt": 29460
+  },
+  "port": "Rio Haina, Dominican Republic",
+  "events": [
+    {
+      "type": "Berth",
+      "service_type": "Berth",
+      "date": "2025-08-27",
+      "tug_made_fast_aft": "01:36",
+      "tug_made_fast_fwd": "02:00",
+      "first_line_ashore": "02:24",
+      "all_fast_time": "03:00",
+      "tugs_cast_off": "03:24",
+      "tug_count": 2,
+      "berth_location": "Haina 2-OCC",
+      "duration_mins": 60,
+      "note": "Standard first-hour service. OT (48 additional minutes, 2 periods) billed separately as per-tug adjustment lines."
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2025-08-28",
+      "start_time": "17:00",
+      "end_time": "17:50",
+      "tug_count": 2,
+      "berth_location": "Haina 2-OCC",
+      "duration_mins": 50
+    }
+  ]
+}

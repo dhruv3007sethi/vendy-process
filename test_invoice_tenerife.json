@@ -1,37 +1,19 @@
 {
   "invoice_reference": "0400010500",
-  "internal_ref": "1214",
-  "purchase_order": "SCM2600527",
-  "vendor": "Boluda Towage Spain / Sertosa",
-  "port": "Santa Cruz de Tenerife",
+  "vendor": "Boluda Canarias",
   "vessel_name": "HAFNIA SOYA",
-  "vessel_gt": "24.120",
-  "vessel_imo": "9729271",
-  "vessel_flag": "Singapore",
-  "invoice_date": "2026-03-10",
   "service_date": "2026-03-01",
-  "currency": "EUR",
-  "notes": [
-    "2 Tugs Out: VB CANARIAS + VB TENERIFE (16:00-16:30)",
-    "Zone: comercial — Dique del Este is a commercial port berth in Santa Cruz de Tenerife",
-    "GT 24,120 -> bracket '19,001 to 25,000': fixed=1480.56, variable=0.11645",
-    "Rate = 1480.56 + (0.11645 x 24,120) = 1480.56 + 2808.77 = 4,289.33 EUR",
-    "Invoiced 4,289.33 vs expected 4,289.33 -> exact match",
-    "Tariff effective 2025-05-29 covers March 2026 invoice",
-    "IGIC NO SUJETO -- Inversion del sujeto pasivo (Canary Islands VAT reverse charge, 0 EUR)",
-    "Billing basis: per_service (rate is per maneuver, regardless of tug count)"
-  ],
   "line_items": [
     {
       "service_type": "Unberth",
-      "description": "Desatraque / Unberth 01.03.2026 -- VB CANARIAS + VB TENERIFE (2 tugs)",
+      "description": "Desatraque 01.03.2026 - 2 Tugs Out",
       "date": "2026-03-01",
-      "gt": "24.120",
-      "zone": "comercial",
-      "tug_count": 2,
       "amount": 4289.33,
-      "note": "Dique del Este = comercial zone. Rate = 1480.56 + (0.11645 x 24,120) = 4,289.33. Exact match."
+      "gt": 24120,
+      "loa": 184.0,
+      "tug_count": 2,
+      "zone_key": "comercial",
+      "is_adjustment": false
     }
-  ],
-  "total_amount": 4289.33
+  ]
 }

@@ -91,16 +91,17 @@ def _find_bracket_row(tariff_matrix: List[Dict], gt_value: float) -> Optional[Di
       - 'up_to_gt' numeric key (e.g. Las Palmas: first row where up_to_gt >= gt_value)
     Returns the full row dict, or None if no match.
     """
-    # Handle up_to_gt numeric style (e.g. Las Palmas)
-    if tariff_matrix and 'up_to_gt' in tariff_matrix[0]:
-        sorted_rows = sorted(tariff_matrix, key=lambda r: r.get('up_to_gt', float('inf')))
+    # Handle up_to_gt / dimension_max numeric style (e.g. Las Palmas)
+    if tariff_matrix and ('up_to_gt' in tariff_matrix[0] or 'dimension_max' in tariff_matrix[0]):
+        upper_key = 'dimension_max' if 'dimension_max' in tariff_matrix[0] else 'up_to_gt'
+        sorted_rows = sorted(tariff_matrix, key=lambda r: r.get(upper_key, float('inf')))
         for row in sorted_rows:
-            if gt_value <= row['up_to_gt']:
+            if gt_value <= row[upper_key]:
                 return row
         return None
 
     for row in tariff_matrix:
-        gt_range_text = row.get('gt_range', '')
+        gt_range_text = row.get('dimension_range') or row.get('gt_range', '')
         if not gt_range_text:
             continue
         
@@ -227,8 +228,8 @@ def calculate_fixed_plus_variable(
             any(k in rates_source for k in ['variable_rate_per_gt_eur', 'variable_rate_per_gt', 'variable'])
         )
 
-        # Only use direct rates if there is no tariff_matrix overriding it
-        if has_direct_rates and 'tariff_matrix' not in rates_source:
+        # Only use direct rates if there is no tariff_matrix / rate_table overriding it
+        if has_direct_rates and 'tariff_matrix' not in rates_source and 'rate_table' not in rates_source:
             fixed, variable = _extract_fixed_variable(rates_source, zone_key)
             base_rate = fixed + (variable * gt_value)
             return {
@@ -246,7 +247,7 @@ def calculate_fixed_plus_variable(
     if isinstance(rates_source, list):
         tariff_matrix = rates_source
     elif isinstance(rates_source, dict):
-        matrix = rates_source.get("tariff_matrix")
+        matrix = rates_source.get("rate_table") or rates_source.get("tariff_matrix")
         if isinstance(matrix, list):
             tariff_matrix = matrix
         elif isinstance(matrix, dict):
