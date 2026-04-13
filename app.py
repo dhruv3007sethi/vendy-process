@@ -233,28 +233,183 @@ def fmt_eur(val: float, currency: str = "EUR") -> str:
     return f"{currency} {val:,.2f}"
 
 
+def _infer_service_type(description: str) -> str:
+    """Infer Berth / Unberth / Shifting from free-text description."""
+    d = description.lower()
+    if any(w in d for w in ("arrival", "inward", "atraque", "berthing", "mooring", "berth")):
+        return "Berth"
+    if any(w in d for w in ("departure", "outward", "desatraque", "unberth", "unberthing", "sailing")):
+        return "Unberth"
+    if any(w in d for w in ("shifting", "shift", "cambio")):
+        return "Shifting"
+    return "Berth"  # default — desk officer will review
+
+
+def _is_adjustment_line(description: str, line: dict) -> bool:
+    """Return True for discount, surcharge, VAT, bunker lines."""
+    d = description.lower()
+    if line.get("is_adjustment") is True:
+        return True
+    return any(w in d for w in (
+        "discount", "rebate", "bunker", "surcharge", "vat", "tax", "iva", "igic",
+        "baf", "fuel", "adjustment", "korting", "remise"
+    ))
+
+
+def _extract_date(raw: str) -> str:
+    """Convert common date formats to YYYY-MM-DD. Returns raw string if unparseable."""
+    import re as _re
+    if not raw:
+        return ""
+    # already ISO
+    if _re.match(r"\d{4}-\d{2}-\d{2}", raw):
+        return raw[:10]
+    # DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
+    m = _re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", raw)
+    if m:
+        return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
+    return raw
+
+
+def normalise_invoice(inv: dict) -> dict:
+    """
+    Accept any reasonable invoice JSON shape — engine flat format or raw
+    ChatGPT/NotebookLM document format — and return the engine flat format.
+
+    Handles nested structures like:
+      inv.invoice_metadata.invoice_number
+      inv.vessel_details.loa_meters / gross_tonnage
+      inv.issuer.company  (vendor)
+      inv.line_items[].unit_price_eur  (amount)
+      inv.line_items[].details         (zone hint)
+    """
+    # --- Already in engine format? ---
+    if inv.get("invoice_reference") and inv.get("line_items"):
+        first = inv["line_items"][0] if inv["line_items"] else {}
+        if "service_type" in first or "amount" in first:
+            return inv  # already flat — pass through
+
+    # --- Extract header fields from nested locations ---
+    meta    = inv.get("invoice_metadata") or inv.get("invoice_header") or {}
+    vessel  = inv.get("vessel_details") or inv.get("vessel") or {}
+    issuer  = inv.get("issuer") or {}
+    billing = inv.get("billing_details") or {}
+    totals  = inv.get("totals") or {}
+
+    invoice_reference = (
+        inv.get("invoice_reference") or
+        meta.get("invoice_number") or
+        meta.get("reference") or
+        meta.get("invoice_ref") or ""
+    )
+    vendor = (
+        inv.get("vendor") or
+        issuer.get("company") or
+        inv.get("vendor_name") or ""
+    )
+    vessel_name = (
+        inv.get("vessel_name") or
+        vessel.get("name") or
+        vessel.get("vessel_name") or ""
+    )
+    raw_date = (
+        inv.get("service_date") or
+        meta.get("invoice_date") or
+        meta.get("date") or ""
+    )
+    service_date = _extract_date(raw_date)
+    currency = inv.get("currency") or "EUR"
+
+    # Vessel dimensions — pull from vessel_details block for injection into lines
+    loa = (
+        vessel.get("loa") or vessel.get("loa_meters") or
+        inv.get("loa") or None
+    )
+    gt = (
+        vessel.get("gt") or vessel.get("gross_tonnage") or
+        inv.get("gt") or inv.get("gross_tonnage") or None
+    )
+    grt = vessel.get("grt") or inv.get("grt") or None
+
+    # --- Normalise line items ---
+    raw_lines = inv.get("line_items", [])
+    normalised_lines = []
+    for line in raw_lines:
+        desc = (
+            line.get("description") or
+            line.get("service") or
+            line.get("item") or ""
+        )
+        details = line.get("details") or line.get("detail") or ""
+        amount = float(
+            line.get("amount") or
+            line.get("unit_price_eur") or
+            line.get("amount_eur") or
+            line.get("total") or 0.0
+        )
+        # Amounts on discount lines may be negative in raw format — keep as positive
+        amount = abs(amount)
+
+        is_adj = _is_adjustment_line(desc, line)
+
+        # Tug count — from line or from invoice header
+        tug_count = (
+            line.get("tug_count") or
+            (int(line["quantity"]) if line.get("unit", "").lower() in ("tugs", "tug") else None)
+        )
+
+        # Zone — from line field or extracted from details text
+        zone = line.get("zone") or (details if details else None)
+
+        # Date — line date or fall back to service_date
+        line_date = _extract_date(line.get("date") or line.get("service_date") or raw_date)
+
+        nl = {
+            "service_type":    line.get("service_type") or (_infer_service_type(desc) if not is_adj else desc),
+            "description":     desc,
+            "date":            line_date,
+            "amount":          amount,
+            "gt":              line.get("gt") or gt,
+            "loa":             line.get("loa") or loa,
+            "grt":             line.get("grt") or grt,
+            "tug_count":       tug_count,
+            "zone":            zone,
+            "fx_rate_mxn_usd": line.get("fx_rate_mxn_usd"),
+            "is_adjustment":   is_adj,
+        }
+        normalised_lines.append(nl)
+
+    return {
+        "invoice_reference": invoice_reference,
+        "vendor":            vendor,
+        "vessel_name":       vessel_name,
+        "service_date":      service_date,
+        "currency":          currency,
+        "line_items":        normalised_lines,
+    }
+
+
 def normalise_invoice_fields(inv: dict) -> tuple[str, str, str, str]:
-    """Return (invoice_reference, vendor, vessel_name, service_date) handling both field conventions."""
-    invoice_reference = inv.get("invoice_reference") or inv.get("invoice_number", "")
-    vendor            = inv.get("vendor") or inv.get("vendor_name", "")
-    vessel_name       = inv.get("vessel_name", "")
-    service_date      = inv.get("service_date") or inv.get("date_of_issue", "")
-    return invoice_reference, vendor, vessel_name, service_date
+    """Return (invoice_reference, vendor, vessel_name, service_date)."""
+    inv = normalise_invoice(inv)
+    return (
+        inv.get("invoice_reference", ""),
+        inv.get("vendor", ""),
+        inv.get("vessel_name", ""),
+        inv.get("service_date", ""),
+    )
 
 
 def prepare_lines(inv: dict) -> tuple[list, list]:
-    """Inject GT and split service / adjustment lines."""
-    invoice_gt = inv.get("gross_tonnage") or inv.get("gt")
+    """Normalise invoice, inject dimensions, split service / adjustment lines."""
+    inv = normalise_invoice(inv)
     service_lines: list = []
     adjustment_lines: list = []
     for line in inv.get("line_items", []):
-        lc = dict(line)
-        if invoice_gt and "gt" not in lc:
-            lc["gt"] = invoice_gt
-        if lc.get("is_adjustment"):
-            adjustment_lines.append(lc)
+        if line.get("is_adjustment"):
+            adjustment_lines.append(line)
         else:
-            service_lines.append(lc)
+            service_lines.append(line)
     return service_lines, adjustment_lines
 
 
