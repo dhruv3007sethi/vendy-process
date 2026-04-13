@@ -1,0 +1,9 @@
+{
+  "currency": "EUR",
+  "port_metadata": {
+    "port_name": "Nordenham",
+    "country": "Germany",
+    "vendor": "BOLUDA",
+    "note": "No public tariff data available. Verification is concession-discount-only."
+  }
+}

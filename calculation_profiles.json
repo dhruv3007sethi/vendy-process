@@ -125,6 +125,7 @@
       ],
       "tug_count_source": "invoice",
       "shifting_logic": "multiplier_on_section_1_base_rate",
+      "overtime_handler": "flat_hourly_per_tug",
       "waiting_time_handler": "675_per_half_hour_after_30min_grace",
       "fog_surcharge": {
         "multiplier": 1.5,
@@ -166,6 +167,11 @@
       "bollard_pull_source": "invoice_face_value",
       "overtime_handler": "first_60min_full_hour_then_30min_increments",
       "oversize_logic": "376_per_10000gt_above_200000gt",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 32.5
+      },
       "requires_human_review_for": [
         "holding_pushing_verification"
       ],
@@ -177,14 +183,19 @@
       "calculation_pattern": "bracket_lookup",
       "zone_determines_rate": true,
       "zones": [
-        "sector_1_standard",
-        "sector_2_fishery_stadthafen"
+        "sector_1",
+        "sector_2"
       ],
       "sector_2_surcharge": 1.25,
       "tug_count_source": "invoice",
       "tariff_b_handler": "hourly_at_1150_standard_or_1610_strong_winds",
       "wind_trigger_bft": 6,
       "oversize_logic": "571_per_10000gt_above_50000gt",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 15.0
+      },
       "requires_human_review_for": [
         "ice_breaking_base_tariff"
       ],
@@ -192,6 +203,84 @@
         "Ice surcharge (25%) and ice breaking (50%) both reference 'Tariff A and B' but it is ambiguous whether surcharge applies to Tariff A only, Tariff B only, or both combined"
       ],
       "notes": "Evening/weekend/holiday surcharge (25%) applies only if at least 50% of service is outside Mon-Fri 07:00-17:00"
+    },
+    "Hamburg": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 37.5
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only: verify BOLUDA discount % matches agreement."
+    },
+    "Bremerhaven": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 30.0
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only."
+    },
+    "Bremen": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 37.5
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only."
+    },
+    "Nordenham": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 32.5
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only."
+    },
+    "Wilhelmshaven": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 32.5
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only."
+    },
+    "Cuxhaven": {
+      "dimension_type": "none",
+      "billing_basis": "per_service",
+      "calculation_pattern": "concession_check_only",
+      "tug_count_source": "invoice",
+      "contract_discount": {
+        "vendor": "BOLUDA",
+        "scheme": "German Ports concession",
+        "pct": 20.0
+      },
+      "requires_human_review_for": [],
+      "notes": "No tariff data available. Concession-check only."
     },
     "Altamira": {
       "dimension_type": "GRT",
@@ -342,9 +431,9 @@
       ],
       "vessel_type_determines_table": true,
       "tables": [
-        "general_tariff_zone_i",
-        "tanker_vessel_tariff_zone_i",
-        "tanker_vessel_tariff_zone_ii"
+        "general_maximum_tariff_zone_i",
+        "tanker_maximum_tariff_zone_i",
+        "tanker_maximum_tariff_zone_ii"
       ],
       "formula": "Rate = IF + (IV * GT)",
       "tug_count_source": "not_applicable",

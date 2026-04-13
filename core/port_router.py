@@ -390,8 +390,8 @@ def _infer_plausible_conditions(
                     "expected_amount": expected,
                     "variance_pct": v,
                 })
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Backward inference: zone '{zone}' calculation failed: {e}")
 
     # Compute base using the first (default/fallback) zone for Levels 2–5
     default_zone, default_rates = next(iter(rates.items()), (None, None))
@@ -400,8 +400,8 @@ def _infer_plausible_conditions(
         try:
             result = calculate_fixed_plus_variable(dim_value, default_rates, default_zone)
             base_rate = round(float(result.get("base_rate") or 0.0), 2)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Backward inference: default zone '{default_zone}' failed: {e}")
 
     if base_rate > 0:
         ratio = invoiced_amount / base_rate
@@ -428,7 +428,8 @@ def _infer_plausible_conditions(
             try:
                 zone_result = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
                 zone_base = round(float(zone_result.get("base_rate") or 0.0), 2)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Backward inference: zone '{zone}' calculation failed: {e}")
                 continue
             for surcharge_name, multiplier in unknown_surcharges.items():
                 expected = round(zone_base * multiplier, 2)
@@ -496,6 +497,21 @@ def _infer_plausible_conditions(
 
 
 # ---------------------------------------------------------------------------
+# CONTRACT DISCOUNT RESOLUTION
+# ---------------------------------------------------------------------------
+
+def _resolve_contract_discount_pct(profile: dict, service_date: str) -> float:
+    """
+    Returns the flat contract discount % from profile["contract_discount"]["pct"].
+    Returns 0.0 if no contract discount is configured.
+    """
+    cd = profile.get("contract_discount")
+    if not cd:
+        return 0.0
+    return float(cd.get("pct", 0.0))
+
+
+# ---------------------------------------------------------------------------
 # PER-PORT HANDLER DISPATCH
 # ---------------------------------------------------------------------------
 
@@ -515,14 +531,13 @@ def _dispatch_handler(
     dim_type = profile.get("dimension_type", "")
     
     # Resolve dimension value (GT, LOA, GRT, etc.) from invoice line.
-    # Priority order is determined by the port's dimension_type so that a line
-    # carrying both 'loa' and 'gt' uses the correct one for each port.
+    # Do NOT fall back across dimension types (LOA must not be used as GT).
     if dim_type in ("GT",):
-        _raw_dim = invoice_line.get("gt") or invoice_line.get("loa")
+        _raw_dim = invoice_line.get("gt")
     elif dim_type in ("GRT",):
-        _raw_dim = invoice_line.get("grt") or invoice_line.get("trb") or invoice_line.get("gt")
+        _raw_dim = invoice_line.get("grt") or invoice_line.get("trb")
     else:  # LOA_meters, LOA, or unspecified
-        _raw_dim = invoice_line.get("loa") or invoice_line.get("gt") or invoice_line.get("grt")
+        _raw_dim = invoice_line.get("loa")
     dim_value = _parse_vessel_dimension(_raw_dim)
 
     # --- bracket_lookup (Ghent, Antwerp, etc.) ---
@@ -535,7 +550,10 @@ def _dispatch_handler(
         base_rate = lookup_bracket_rate(rates_data, dim_value, rate_col)
 
         # MXN → USD conversion (Guaymas and similar Mexican bracket ports)
-        fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        try:
+            fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        except (ValueError, TypeError):
+            raise ValueError(f"Non-numeric FX rate: {invoice_line.get('fx_rate_mxn_usd')!r}")
         if fx_rate > 0:
             base_rate = round(base_rate / fx_rate, 2)
 
@@ -568,7 +586,7 @@ def _dispatch_handler(
         tug_multiplier = tug_count if billing_basis == "per_tug_per_move" else 1
         return {
             "base_rate": base_rate,
-            "total_rate": round((base_rate + lvi_charge + oversize_charge) * tug_multiplier, 2),
+            "total_rate": round(base_rate * tug_multiplier + lvi_charge + oversize_charge, 2),
             "large_vessel_increment": lvi_charge,
             "oversize_supplement": oversize_charge,
             "zone_used": zone,
@@ -628,7 +646,10 @@ def _dispatch_handler(
             bow_thruster_discount=bool(invoice_line.get("bow_thruster_discount")),
             small_vessel_discount=bool(invoice_line.get("small_vessel_discount"))
         )
-        fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        try:
+            fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        except (ValueError, TypeError):
+            raise ValueError(f"Non-numeric FX rate: {invoice_line.get('fx_rate_mxn_usd')!r}")
         if fx_rate > 0:
             hp_result = dict(hp_result)
             hp_result["total_charge"] = round(hp_result["total_charge"] / fx_rate, 2)
@@ -668,7 +689,10 @@ def _dispatch_handler(
             small_vessel_discount=bool(invoice_line.get("small_vessel_discount"))
         )
         # MXN → USD conversion (same as Guaymas/Manzanillo)
-        fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        try:
+            fx_rate = float(invoice_line.get("fx_rate_mxn_usd") or 0)
+        except (ValueError, TypeError):
+            raise ValueError(f"Non-numeric FX rate: {invoice_line.get('fx_rate_mxn_usd')!r}")
         if fx_rate > 0:
             result = dict(result)
             for key in ("total_charge", "base_rate", "effective_rate", "overtime_charge", "third_tug_charge"):
@@ -687,6 +711,10 @@ def _dispatch_handler(
             tariff_tables=tables,
             zone=zone
         )
+
+    # --- concession_check_only (no tariff data available; only discount verification) ---
+    elif pattern == "concession_check_only":
+        return {"base_rate": 0.0, "total_rate": 0.0, "concession_check_only": True}
 
     else:
         raise ValueError(
@@ -828,13 +856,14 @@ def route(
     # Resolve Vessel Info from effective SOF
     _raw_vessel = effective_sof.get("vessel") or effective_sof.get("vessel_info") or {}
     vessel_info = _raw_vessel if isinstance(_raw_vessel, dict) else {}
-    # Dim-type-aware: read the correct dimension key from the SOF vessel info
+    # Dim-type-aware: read the correct dimension key from the SOF vessel info.
+    # Do NOT fall back across dimension types (LOA must not be used as GT).
     if dim_type in ("GT",):
-        _sof_raw_dim = vessel_info.get("gt") or vessel_info.get("loa")
+        _sof_raw_dim = vessel_info.get("gt")
     elif dim_type in ("GRT",):
-        _sof_raw_dim = vessel_info.get("grt") or vessel_info.get("trb") or vessel_info.get("gt")
+        _sof_raw_dim = vessel_info.get("grt") or vessel_info.get("trb")
     else:  # LOA_meters, LOA, or unspecified
-        _sof_raw_dim = vessel_info.get("loa") or vessel_info.get("gt") or vessel_info.get("grt")
+        _sof_raw_dim = vessel_info.get("loa")
     dim_value = _parse_vessel_dimension(_sof_raw_dim)
     if not vessel_name:
         vessel_name = vessel_info.get("name", "") or (
@@ -853,13 +882,14 @@ def route(
         # Inject vessel dimension into invoice_line if not present (for handlers that expect it there)
         # If the invoice line already carries a GT (injected by caller), use that and note any SOF mismatch.
         # _parse_vessel_dimension handles European format: "23.403" → 23403 GT.
-        # Use dim_type-aware priority so a line with both loa and gt picks the right one.
+        # Use dim_type-aware priority — do NOT fall back across dimension types
+        # (e.g. LOA meters should never be used as GT).
         if dim_type in ("GT",):
-            _inv_raw = invoice_line.get("gt") or invoice_line.get("loa")
+            _inv_raw = invoice_line.get("gt")
         elif dim_type in ("GRT",):
-            _inv_raw = invoice_line.get("grt") or invoice_line.get("trb") or invoice_line.get("gt")
-        else:
-            _inv_raw = invoice_line.get("loa") or invoice_line.get("gt") or invoice_line.get("grt")
+            _inv_raw = invoice_line.get("grt") or invoice_line.get("trb")
+        else:  # LOA_meters, LOA
+            _inv_raw = invoice_line.get("loa")
         invoice_dim_value = _parse_vessel_dimension(_inv_raw)
         if invoice_dim_value:
             # Use the invoice's own dimension value for calculation
@@ -870,6 +900,14 @@ def route(
             if dim_value:
                 dim_key = dim_type.lower().replace("_meters", "")
                 invoice_line[dim_key] = dim_value
+
+        # Validate: if dimension is still 0 and port requires it, flag for review
+        if not dim_value_for_line and dim_type not in ("none", ""):
+            human_review_flag = True
+            human_review_reason = (
+                f"{human_review_reason}; " if human_review_reason else ""
+            ) + f"Missing vessel dimension ({dim_type}) — cannot calculate rate"
+            logger.warning(f"Line {idx} ({service_type}): no {dim_type} dimension available")
 
         # GT mismatch check: if invoice carries its own GT and it differs from SOF GT by >1%
         gt_mismatch_note = ""
@@ -1019,7 +1057,49 @@ def route(
                 known_surcharge_types=known_surcharge_types
             )
 
+            # 4b. Contract discount — apply to handler total_rate if configured
+            contract_discount_pct = _resolve_contract_discount_pct(profile, service_date)
+            calculation_pattern = profile.get("calculation_pattern", "")
+            if calculation_pattern == "concession_check_only":
+                # No base tariff available — can only note the concession on record
+                human_review_flag = True
+                _cd_vendor = profile.get('contract_discount', {}).get('vendor', 'contract')
+                discount_note = (
+                    f"Concession-only port — base tariff not available. "
+                    f"{_cd_vendor} concession: {contract_discount_pct:.1f}% discount on record. "
+                    f"Manual verification required."
+                    if contract_discount_pct else
+                    "Concession-only port — base tariff not available. No discount on record."
+                )
+                human_review_reason = (
+                    f"{human_review_reason}; {discount_note}" if human_review_reason else discount_note
+                )
+                tariff_rule_cited = f"{port} — {discount_note}"
+            elif contract_discount_pct > 0 and handler_result.get("total_rate", 0.0) > 0:
+                gross_rate = handler_result["total_rate"]
+                discounted_rate = round(gross_rate * (1 - contract_discount_pct / 100), 2)
+                handler_result = dict(handler_result)
+                handler_result["total_rate"] = discounted_rate
+                handler_result["gross_rate_pre_discount"] = gross_rate
+                handler_result["contract_discount_pct"] = contract_discount_pct
+                tariff_rule_cited = (
+                    f"{tariff_rule_cited} | Contract discount {contract_discount_pct:.1f}% applied "
+                    f"(gross {gross_rate:,.2f} -> net {discounted_rate:,.2f})"
+                )
+
             # 5. Build Line Item
+            # Compute expected amount to determine exact_tariff_match
+            _hr = handler_result
+            _expected_base = float(_hr.get('total_rate') or _hr.get('total_charge') or _hr.get('base_rate') or 0.0)
+            _expected_surcharge = surcharge_report.total_surcharge_amount if surcharge_report else 0.0
+            _expected_overtime = overtime_result.overtime_charge if overtime_result else 0.0
+            _expected_total = _expected_base + _expected_surcharge + _expected_overtime
+            if _expected_total > 0:
+                _var_pct = abs((invoiced_amount - _expected_total) / _expected_total * 100)
+            else:
+                _var_pct = 100.0 if invoiced_amount > 0 else 0.0
+            _exact_tariff_match = _var_pct <= match_tolerance_pct
+
             line_result = build_line_item(
                 line_number=idx,
                 service_description=service_type,
@@ -1034,7 +1114,7 @@ def route(
                 human_review_flag=human_review_flag,
                 human_review_reason=human_review_reason,
                 sof_event_found=sof_event_found,
-                exact_tariff_match=True,
+                exact_tariff_match=_exact_tariff_match,
                 has_open_doubts=has_open_doubts,
                 tug_spec_from_invoice=tug_spec_from_invoice,
                 zone_inferred=zone_inferred,
