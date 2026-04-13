@@ -116,7 +116,7 @@ def _parse_text_range_brackets(brackets: List[dict], dimension_value: float,
         # Pattern: "Under X" (e.g., "Under 5,000")
         if text_clean.startswith('under '):
             upper = float(re.sub(r'[^\d.]', '', text_clean.replace('under', '')))
-            matched = dimension_value < upper
+            matched = dimension_value <= upper
 
         # Pattern: "Up to X" (inclusive, e.g., "Up to 8,000 GT")
         elif text_clean.startswith('up to '):

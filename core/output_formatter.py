@@ -247,9 +247,14 @@ def build_line_item(
     if expected_amount != 0:
         variance_pct = round((variance / expected_amount * 100), 2)
     else:
-        variance_pct = 0.0
         if invoiced_amount != 0:
-            variance_pct = 100.0 # 100% error if calc is 0 but invoiced is not
+            variance_pct = 100.0  # 100% error if calc is 0 but invoiced is not
+        else:
+            variance_pct = 0.0
+            # Both zero — no baseline to compare; force review
+            human_review_flag = True
+            if not human_review_reason:
+                human_review_reason = "Expected and invoiced both zero — no baseline"
 
     # 5. Verdict & Confidence
     verdict = _determine_verdict(

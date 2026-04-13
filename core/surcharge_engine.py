@@ -276,9 +276,11 @@ def apply_surcharges(
         fn = _SURCHARGE_MAP[surcharge_type]
 
         # Build kwargs from the surcharge_def, excluding 'type'
-        # We explicitly pass base_rate and port to ensure consistency
+        # Surcharges stack ADDITIVELY on the original base_rate (not multiplicatively).
+        # E.g. two 1.25× surcharges on base=1000: each adds 250 → total = 1500, not 1000×1.25×1.25=1562.50.
+        # This matches port tariff billing practice where each surcharge is independent.
         kwargs = {k: v for k, v in surcharge_def.items() if k != 'type'}
-        kwargs['base_rate'] = report.base_rate # Use the rounded base rate
+        kwargs['base_rate'] = report.base_rate
         kwargs['port'] = port
 
         try:

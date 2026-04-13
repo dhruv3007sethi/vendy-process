@@ -244,8 +244,8 @@ def first_full_hour_then_30min(
 
     excess_hrs = actual_duration_hrs - standard_duration_hrs
 
-    if excess_hrs <= 1.0:
-        # First period: full hour charge
+    if excess_hrs <= 1.0 + 1e-6:
+        # First period: full hour charge (epsilon tolerance for floating-point)
         charge = hourly_rate_per_tug * tug_count
         billing_units = 1.0
     else:
@@ -349,12 +349,10 @@ def calculate_overtime(
     fn = OVERTIME_PATTERNS.get(pattern)
 
     if fn is None:
-        logger.warning(
+        raise ValueError(
             f"Unknown overtime pattern '{pattern}' for port '{port}'. "
             f"Available: {list(OVERTIME_PATTERNS.keys())}"
         )
-        return OvertimeResult(0.0, pattern, 0.0, 0.0, 0.0, 1,
-                              f"WARNING: unknown pattern '{pattern}' — overtime not calculated")
 
     return fn(
         actual_duration_hrs=actual_duration_hrs,
