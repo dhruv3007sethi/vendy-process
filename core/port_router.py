@@ -15,6 +15,7 @@ the router:
 """
 
 import logging
+import re
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 
@@ -500,6 +501,40 @@ def _infer_plausible_conditions(
 # CONTRACT DISCOUNT RESOLUTION
 # ---------------------------------------------------------------------------
 
+def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tuple[Optional[str], bool]:
+    """
+    Resolves a free-text zone string from an invoice line to a canonical zone key
+    used in zone_rate_columns.
+
+    Strategy:
+      1. Exact match — return as-is, zone_inferred=False
+      2. Substring match (case-insensitive) — return first matching key, zone_inferred=True
+      3. No match — return None, zone_inferred=False (caller uses default rate column)
+
+    Returns (resolved_key, zone_inferred).
+    """
+    if not zone_input or not zone_rate_columns:
+        return zone_input, False
+    # 1. Exact match
+    if zone_input in zone_rate_columns:
+        return zone_input, False
+    # 2. Substring match: check if any word from zone_input appears in a key, or vice versa
+    zone_lower = zone_input.lower()
+    for key in zone_rate_columns:
+        if key.lower() in zone_lower or zone_lower in key.lower():
+            logger.info(f"Zone '{zone_input}' fuzzy-matched to '{key}' (zone_inferred=True)")
+            return key, True
+    # 3. Token-level substring: split input on non-alphanumeric, check each token
+    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 3]
+    for key in zone_rate_columns:
+        key_lower = key.lower()
+        for token in tokens:
+            if token in key_lower:
+                logger.info(f"Zone '{zone_input}' token '{token}' matched key '{key}' (zone_inferred=True)")
+                return key, True
+    return zone_input, False
+
+
 def _resolve_contract_discount_pct(profile: dict, service_date: str) -> float:
     """
     Returns the flat contract discount % from profile["contract_discount"]["pct"].
@@ -542,11 +577,16 @@ def _dispatch_handler(
 
     # --- bracket_lookup (Ghent, Antwerp, etc.) ---
     if pattern == "bracket_lookup":
-        zone = invoice_line.get("zone") or invoice_line.get("route")
+        zone_raw = invoice_line.get("zone") or invoice_line.get("route")
         route_hint = invoice_line.get("route_hint")
+        zone_rate_columns = profile.get("zone_rate_columns", {})
+        zone, _zone_inferred = _resolve_zone_key(zone_raw, zone_rate_columns)
+        # Write resolved zone back so tariff_rule_cited shows the canonical key
+        invoice_line["zone"] = zone
+        invoice_line["_zone_inferred"] = _zone_inferred
         rates_data = _get_rates_data(tariff_data, zone, route_hint)
         # Zone-specific rate column (e.g. Antwerp: zandvliet_kallo_rate_eur vs antwerp_city_rate_eur)
-        rate_col = profile.get("zone_rate_columns", {}).get(zone) if zone else None
+        rate_col = zone_rate_columns.get(zone) if zone else None
         base_rate = lookup_bracket_rate(rates_data, dim_value, rate_col)
 
         # MXN → USD conversion (Guaymas and similar Mexican bracket ports)
@@ -879,6 +919,10 @@ def route(
         )
         invoiced_amount = float(invoice_line.get("amount") or invoice_line.get("total") or 0.0)
 
+        # Initialise review flags early — dimension validation below may set them
+        human_review_flag = False
+        human_review_reason = ""
+
         # Inject vessel dimension into invoice_line if not present (for handlers that expect it there)
         # If the invoice line already carries a GT (injected by caller), use that and note any SOF mismatch.
         # _parse_vessel_dimension handles European format: "23.403" → 23403 GT.
@@ -933,9 +977,7 @@ def route(
         tug_count = _get_tug_count(sof_event, invoice_line, tug_count_source)
         tug_spec_from_invoice = (tug_count_source == "invoice")
 
-        # Human Review Check
-        human_review_flag = False
-        human_review_reason = ""
+        # Human Review Check — flags may already be set by dimension validation above
         for trigger in human_review_triggers:
             if trigger.lower() in service_type.lower():
                 human_review_flag = True
@@ -950,10 +992,10 @@ def route(
                 else gt_mismatch_note
             )
 
-        # Zone Inference Flag
+        # Zone Inference Flag — set if zone was absent OR fuzzy-matched from free text
         zone_inferred = (
-            invoice_line.get("zone") is None and
-            profile.get("zone_determines_rate", False)
+            (invoice_line.get("zone") is None and profile.get("zone_determines_rate", False))
+            or invoice_line.pop("_zone_inferred", False)
         )
 
         try:
