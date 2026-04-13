@@ -256,19 +256,117 @@ def _is_adjustment_line(description: str, line: dict) -> bool:
     ))
 
 
+_SOF_MONTH_MAP = {
+    "jan": "01", "feb": "02", "mar": "03", "apr": "04",
+    "may": "05", "jun": "06", "jul": "07", "aug": "08",
+    "sep": "09", "oct": "10", "nov": "11", "dec": "12",
+}
+
+
 def _extract_date(raw: str) -> str:
     """Convert common date formats to YYYY-MM-DD. Returns raw string if unparseable."""
     import re as _re
     if not raw:
         return ""
+    raw = str(raw).strip()
     # already ISO
     if _re.match(r"\d{4}-\d{2}-\d{2}", raw):
         return raw[:10]
+    # DD-Mon-YYYY  (e.g. 07-Feb-2026, 04-Feb-2026)
+    m = _re.match(r"(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})", raw)
+    if m:
+        d, mon, y = m.groups()
+        mo = _SOF_MONTH_MAP.get(mon.lower(), "01")
+        return f"{y}-{mo}-{d.zfill(2)}"
     # DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
     m = _re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", raw)
     if m:
         return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
     return raw
+
+
+def _infer_sof_event_type(event_text: str) -> str:
+    """Map free-text SOF event description to Berth / Unberth / Shifting."""
+    t = event_text.lower()
+    if any(w in t for w in ("all fast", "first line", "made fast", "alongside", "berthing", "arrival", "mooring")):
+        return "Berth"
+    if any(w in t for w in ("last line", "departure", "unberth", "cast off", "let go", "sailed", "leaving")):
+        return "Unberth"
+    if any(w in t for w in ("shift", "warp")):
+        return "Shifting"
+    return ""
+
+
+def normalise_sof(sof: dict) -> dict:
+    """
+    Accept any reasonable SOF JSON shape and return engine format.
+
+    Handles ChatGPT SOF format differences:
+      - vessel_details  instead of  vessel
+      - event (free text) instead of type / service_type
+      - date "07-Feb-2026" instead of "2026-02-07"
+      - number_of_tugs  instead of  tug_count
+    """
+    # Check if already in engine format (has vessel + events with type/service_type)
+    if sof.get("vessel") and sof.get("events"):
+        first_evt = sof["events"][0] if sof["events"] else {}
+        if "type" in first_evt or "service_type" in first_evt:
+            return sof  # already engine format
+
+    # --- Vessel block ---
+    vessel_raw = (
+        sof.get("vessel_details") or
+        sof.get("vessel") or
+        sof.get("vessel_info") or {}
+    )
+    if not isinstance(vessel_raw, dict):
+        vessel_raw = {}
+
+    vessel_name = (
+        vessel_raw.get("vessel_name") or vessel_raw.get("name") or
+        sof.get("vessel_name") or ""
+    )
+    loa = vessel_raw.get("loa") or vessel_raw.get("loa_meters") or None
+    gt  = vessel_raw.get("gt")  or vessel_raw.get("gross_tonnage") or None
+    grt = vessel_raw.get("grt") or None
+
+    # --- Events ---
+    raw_events = sof.get("events", [])
+    norm_events = []
+    for evt in raw_events:
+        if not isinstance(evt, dict):
+            continue
+        event_text = (
+            evt.get("event") or evt.get("type") or
+            evt.get("service_type") or evt.get("description") or ""
+        )
+        svc_type   = evt.get("service_type") or evt.get("type") or _infer_sof_event_type(event_text)
+        event_date = _extract_date(str(evt.get("date") or ""))
+        tug_count  = evt.get("tug_count") or evt.get("number_of_tugs") or evt.get("tugs")
+
+        ne: dict = {
+            "type":             svc_type,
+            "service_type":     svc_type,
+            "event_description": event_text,
+            "date":             event_date,
+            "tug_count":        tug_count,
+        }
+        # Carry through any existing time / duration fields
+        for k in ("time", "tugs_alongside_time", "all_fast_time",
+                  "duration_mins", "duration_hrs", "berth_location"):
+            if k in evt:
+                ne[k] = evt[k]
+        norm_events.append(ne)
+
+    return {
+        "vessel": {
+            "name": vessel_name,
+            **({"loa": loa} if loa is not None else {}),
+            **({"gt": gt}   if gt  is not None else {}),
+            **({"grt": grt} if grt is not None else {}),
+        },
+        "events": norm_events,
+    }
 
 
 def normalise_invoice(inv: dict) -> dict:
@@ -318,11 +416,29 @@ def normalise_invoice(inv: dict) -> dict:
     )
     raw_date = (
         inv.get("service_date") or
+        meta.get("service_date") or
         meta.get("invoice_date") or
         meta.get("date") or ""
     )
     service_date = _extract_date(raw_date)
     currency = inv.get("currency") or "EUR"
+
+    # If service_date came from invoice_date (billing date), try to find the actual
+    # service date embedded in a line item's details text (e.g. "- 07.02.2026,")
+    # Only override if the extracted date is clearly earlier (i.e. service predates invoice).
+    if not inv.get("service_date") and not meta.get("service_date"):
+        for _line in inv.get("line_items", []):
+            _details = str(_line.get("details") or _line.get("detail") or "")
+            _m = re.search(r"\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})\b", _details)
+            if _m:
+                _d_cand = f"{_m.group(3)}-{_m.group(2).zfill(2)}-{_m.group(1).zfill(2)}"
+                # Use this date if it is earlier than the invoice date (service before billing)
+                if service_date and _d_cand < service_date:
+                    service_date = _d_cand
+                    break
+                elif not service_date:
+                    service_date = _d_cand
+                    break
 
     # Vessel dimensions — pull from vessel_details block for injection into lines
     loa = (
@@ -365,8 +481,9 @@ def normalise_invoice(inv: dict) -> dict:
         # Zone — from line field or extracted from details text
         zone = line.get("zone") or (details if details else None)
 
-        # Date — line date or fall back to service_date
-        line_date = _extract_date(line.get("date") or line.get("service_date") or raw_date)
+        # Date — line date, then service_date (which may have been extracted from details
+        # text and is more accurate than raw_date/invoice_date)
+        line_date = _extract_date(line.get("date") or line.get("service_date") or "") or service_date or _extract_date(raw_date)
 
         nl = {
             "service_type":    line.get("service_type") or (_infer_service_type(desc) if not is_adj else desc),
@@ -575,6 +692,7 @@ with tab_verify:
             sof_dict     = json.load(sof_file)     if sof_file     else json.loads(sof_text)
             tariff_dict  = load_tariff(selected_port)
 
+            sof_dict     = normalise_sof(sof_dict)   # handle ChatGPT SOF format
             invoice_reference, vendor, vessel_name, service_date = normalise_invoice_fields(invoice_dict)
             service_lines, adjustment_lines = prepare_lines(invoice_dict)
 
