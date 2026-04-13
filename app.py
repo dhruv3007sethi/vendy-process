@@ -1,6 +1,7 @@
 import sys
 import json
 import pathlib
+import re
 from datetime import datetime, timezone
 
 # Make core/ importable
@@ -265,21 +266,20 @@ _SOF_MONTH_MAP = {
 
 def _extract_date(raw: str) -> str:
     """Convert common date formats to YYYY-MM-DD. Returns raw string if unparseable."""
-    import re as _re
     if not raw:
         return ""
     raw = str(raw).strip()
     # already ISO
-    if _re.match(r"\d{4}-\d{2}-\d{2}", raw):
+    if re.match(r"\d{4}-\d{2}-\d{2}", raw):
         return raw[:10]
     # DD-Mon-YYYY  (e.g. 07-Feb-2026, 04-Feb-2026)
-    m = _re.match(r"(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})", raw)
+    m = re.match(r"(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{4})", raw)
     if m:
         d, mon, y = m.groups()
         mo = _SOF_MONTH_MAP.get(mon.lower(), "01")
         return f"{y}-{mo}-{d.zfill(2)}"
     # DD-MM-YYYY or DD/MM/YYYY or DD.MM.YYYY
-    m = _re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", raw)
+    m = re.match(r"(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})", raw)
     if m:
         return f"{m.group(3)}-{m.group(2).zfill(2)}-{m.group(1).zfill(2)}"
     return raw
