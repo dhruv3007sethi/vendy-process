@@ -283,11 +283,15 @@ def normalise_invoice(inv: dict) -> dict:
       inv.line_items[].unit_price_eur  (amount)
       inv.line_items[].details         (zone hint)
     """
-    # --- Already in engine format? ---
+    # --- Already in engine format with dimensions? Pass through unchanged. ---
     if inv.get("invoice_reference") and inv.get("line_items"):
         first = inv["line_items"][0] if inv["line_items"] else {}
-        if "service_type" in first or "amount" in first:
-            return inv  # already flat — pass through
+        # Only skip normalisation if the line items already carry dimension data.
+        # If loa/gt/grt are missing from lines (but may be in vessel_details),
+        # we must still run the full path to inject them.
+        has_dim = first.get("loa") or first.get("gt") or first.get("grt")
+        if has_dim and ("service_type" in first or "amount" in first):
+            return inv  # already fully flat — pass through
 
     # --- Extract header fields from nested locations ---
     meta    = inv.get("invoice_metadata") or inv.get("invoice_header") or {}
