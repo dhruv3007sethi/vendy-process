@@ -936,8 +936,13 @@ def route(
             _inv_raw = invoice_line.get("loa")
         invoice_dim_value = _parse_vessel_dimension(_inv_raw)
         if invoice_dim_value:
-            # Use the invoice's own dimension value for calculation
+            # Use the invoice's own dimension value for calculation.
+            # Also update dim_value so vessel_dimension_value in the output
+            # reflects the dimension that was actually used (not the SOF value
+            # which may be zero when the SOF has no vessel block).
             dim_value_for_line = invoice_dim_value
+            if not dim_value:
+                dim_value = invoice_dim_value
         else:
             # Fall back to SOF vessel dimension and inject it
             dim_value_for_line = dim_value
