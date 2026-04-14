@@ -210,12 +210,14 @@ def _resolve_sof_event(sof_data: dict, service_type: str, service_date: str = ""
             return True
         if event_date == service_date:
             return True
-        # ±1 day tolerance: handles late-night maneuvers logged on the next calendar day
-        # (e.g. service at 23:55 Jan 10 written in SOF as Jan 11 by port pilot)
+        # ±7 day tolerance: handles (a) late-night maneuvers logged next calendar day,
+        # and (b) vessels waiting at anchor several days before berthing — where the
+        # SOF "Berth" event may be dated to the vessel's arrival at anchorage/pilot
+        # station (E.O.S.P.) rather than the actual tug-assist date.
         try:
             svc_dt = datetime.strptime(service_date, "%Y-%m-%d")
             evt_dt = datetime.strptime(event_date, "%Y-%m-%d")
-            return abs((evt_dt - svc_dt).days) <= 1
+            return abs((evt_dt - svc_dt).days) <= 7
         except (ValueError, TypeError):
             return False
 
