@@ -392,17 +392,23 @@ def normalise_invoice(inv: dict) -> dict:
             return inv  # already fully flat — pass through
 
     # --- Extract header fields from nested locations ---
-    meta    = inv.get("invoice_metadata") or inv.get("invoice_header") or {}
+    # ChatGPT uses many different key names for the same concepts — check all variants.
+    meta = (
+        inv.get("invoice_metadata") or inv.get("invoice_header") or
+        inv.get("invoice_details") or inv.get("header") or {}
+    )
     vessel  = inv.get("vessel_details") or inv.get("vessel") or {}
     issuer  = inv.get("issuer") or {}
-    billing = inv.get("billing_details") or {}
+    billing = inv.get("billing_details") or inv.get("billing_party") or {}
     totals  = inv.get("totals") or {}
+    svc_blk = inv.get("service_details") or inv.get("service_info") or {}
 
     invoice_reference = (
         inv.get("invoice_reference") or
         meta.get("invoice_number") or
         meta.get("reference") or
-        meta.get("invoice_ref") or ""
+        meta.get("invoice_ref") or
+        ""
     )
     vendor = (
         inv.get("vendor") or
@@ -411,11 +417,13 @@ def normalise_invoice(inv: dict) -> dict:
     )
     vessel_name = (
         inv.get("vessel_name") or
-        vessel.get("name") or
-        vessel.get("vessel_name") or ""
+        vessel.get("name") or vessel.get("vessel_name") or ""
     )
+
+    # Service date: check explicit service_date fields before falling back to invoice_date
     raw_date = (
         inv.get("service_date") or
+        svc_blk.get("service_date") or
         meta.get("service_date") or
         meta.get("invoice_date") or
         meta.get("date") or ""
@@ -423,16 +431,19 @@ def normalise_invoice(inv: dict) -> dict:
     service_date = _extract_date(raw_date)
     currency = inv.get("currency") or "EUR"
 
-    # If service_date came from invoice_date (billing date), try to find the actual
+    # If service_date still came from invoice_date (billing date), try to find the actual
     # service date embedded in a line item's details text (e.g. "- 07.02.2026,")
-    # Only override if the extracted date is clearly earlier (i.e. service predates invoice).
-    if not inv.get("service_date") and not meta.get("service_date"):
-        for _line in inv.get("line_items", []):
+    # or in the service_details block area/movement fields.
+    _has_explicit_svc_date = bool(
+        inv.get("service_date") or svc_blk.get("service_date") or meta.get("service_date")
+    )
+    if not _has_explicit_svc_date:
+        raw_lines_preview = inv.get("line_items") or inv.get("charges") or inv.get("services") or []
+        for _line in raw_lines_preview:
             _details = str(_line.get("details") or _line.get("detail") or "")
             _m = re.search(r"\b(\d{1,2})[.\-/](\d{1,2})[.\-/](\d{4})\b", _details)
             if _m:
                 _d_cand = f"{_m.group(3)}-{_m.group(2).zfill(2)}-{_m.group(1).zfill(2)}"
-                # Use this date if it is earlier than the invoice date (service before billing)
                 if service_date and _d_cand < service_date:
                     service_date = _d_cand
                     break
@@ -440,19 +451,24 @@ def normalise_invoice(inv: dict) -> dict:
                     service_date = _d_cand
                     break
 
-    # Vessel dimensions — pull from vessel_details block for injection into lines
+    # Zone hint from service_details block (e.g. "Zandvliet & Deurganckdok Area")
+    _svc_zone_hint = svc_blk.get("area") or svc_blk.get("zone") or svc_blk.get("location") or ""
+
+    # Vessel dimensions — pull from vessel_details block for injection into lines.
+    # ChatGPT uses: loa / loa_meters / loa_m / length_overall
     loa = (
-        vessel.get("loa") or vessel.get("loa_meters") or
-        inv.get("loa") or None
+        vessel.get("loa") or vessel.get("loa_meters") or vessel.get("loa_m") or
+        vessel.get("length_overall") or inv.get("loa") or None
     )
     gt = (
-        vessel.get("gt") or vessel.get("gross_tonnage") or
+        vessel.get("gt") or vessel.get("gross_tonnage") or vessel.get("grt") or
         inv.get("gt") or inv.get("gross_tonnage") or None
     )
     grt = vessel.get("grt") or inv.get("grt") or None
 
     # --- Normalise line items ---
-    raw_lines = inv.get("line_items", [])
+    # ChatGPT uses: line_items / charges / services / items
+    raw_lines = inv.get("line_items") or inv.get("charges") or inv.get("services") or inv.get("items") or []
     normalised_lines = []
     for line in raw_lines:
         desc = (
@@ -470,6 +486,10 @@ def normalise_invoice(inv: dict) -> dict:
         # Amounts on discount lines may be negative in raw format — keep as positive
         amount = abs(amount)
 
+        # "type" field on charges array (e.g. "discount", "surcharge", "base_charge")
+        line_type = str(line.get("type") or "").lower()
+        if line_type in ("discount", "surcharge", "bunker", "adjustment", "vat", "tax"):
+            line["is_adjustment"] = True
         is_adj = _is_adjustment_line(desc, line)
 
         # Tug count — from line or from invoice header
@@ -478,8 +498,8 @@ def normalise_invoice(inv: dict) -> dict:
             (int(line["quantity"]) if line.get("unit", "").lower() in ("tugs", "tug") else None)
         )
 
-        # Zone — from line field or extracted from details text
-        zone = line.get("zone") or (details if details else None)
+        # Zone — from line field, details text, or service_details block
+        zone = line.get("zone") or (details if details else None) or (_svc_zone_hint if not is_adj else None)
 
         # Date — line date, then service_date (which may have been extracted from details
         # text and is more accurate than raw_date/invoice_date)
