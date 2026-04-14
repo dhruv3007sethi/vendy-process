@@ -451,8 +451,11 @@ def normalise_invoice(inv: dict) -> dict:
                     service_date = _d_cand
                     break
 
-    # Zone hint from service_details block (e.g. "Zandvliet & Deurganckdok Area")
-    _svc_zone_hint = svc_blk.get("area") or svc_blk.get("zone") or svc_blk.get("location") or ""
+    # Zone hint — from service_details block or top-level "zone" field (new prompt format)
+    _svc_zone_hint = (
+        svc_blk.get("area") or svc_blk.get("zone") or svc_blk.get("location") or
+        inv.get("zone") or ""
+    )
 
     # Vessel dimensions — pull from vessel_details block for injection into lines.
     # ChatGPT uses: loa / loa_meters / loa_m / length_overall
