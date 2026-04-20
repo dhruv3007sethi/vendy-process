@@ -802,6 +802,16 @@ with tab_verify:
             st.markdown("**Uploaded files:**")
             for f in other_files:
                 st.markdown(f"- `{f.name}`")
+        with st.expander("Or paste JSON directly"):
+            st.text_area(
+                "Others JSON text",
+                key="others_paste",
+                height=120,
+                placeholder='{\n  "source_type": "tug_confirmation_email",\n  "vessel": {...},\n  "events": [...]\n}',
+                label_visibility="collapsed",
+            )
+            _json_status(st.session_state.get("others_paste", ""))
+        if other_files or st.session_state.get("others_paste", "").strip():
             st.info("Will be auto-processed in a future release.")
 
     # ── ChatGPT extraction prompts ────────────
