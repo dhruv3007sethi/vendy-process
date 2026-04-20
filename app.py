@@ -69,6 +69,136 @@ def var_color(pct: float) -> str:
 COMMENTS_FILE = ROOT / "officer_comments.json"
 
 # ─────────────────────────────────────────────
+# ChatGPT extraction prompts
+# ─────────────────────────────────────────────
+
+_PROMPT_INVOICE = '''\
+Convert this invoice image to JSON using EXACTLY this structure.
+Use ISO dates (YYYY-MM-DD). Use null for any field not found.
+
+{
+  "invoice_reference": "<invoice number>",
+  "vendor": "<issuing company name>",
+  "vessel_name": "<vessel name>",
+  "service_date": "<date of towage service, YYYY-MM-DD>",
+  "currency": "EUR",
+  "loa": <vessel length overall in metres, number or null>,
+  "gt": <vessel gross tonnage, number or null>,
+  "zone": "<port area or berth location if stated, or null>",
+  "line_items": [
+    {
+      "service_type": "<Berth | Unberth | Shifting>",
+      "description": "<line description>",
+      "date": "<YYYY-MM-DD>",
+      "amount": <charge amount as positive number>,
+      "tug_count": <number of tugs, or null>,
+      "is_adjustment": false
+    }
+  ]
+}
+
+Rules:
+- Separate each charge into its own line_item
+- Discounts, surcharges, bunker fees, VAT → set is_adjustment: true
+- service_type for adjustments can be the description (e.g. "Discount")
+- service_date is the date tugs worked, NOT the invoice issue date
+- loa / gt: Dutch invoices (Boluda Rotterdam, Kotug) print a vessel line directly above
+  the charge table in the format "VESSEL_NAME IMO XXXXXXX GT XX.XXX LOA XXX,XX".
+  European number format: dot = thousands separator, comma = decimal point.
+  So GT 64.827 → 64827, LOA 256,00 → 256.0. Extract these as top-level loa and gt.
+- vendor: look in the footer or letterhead for the issuing company, not the
+  customer/recipient address block.
+- invoice_reference: use the INVOICE number, not the PO/Sales Order/Job Card number.
+  The invoice number is next to the label "INVOICE" or "Invoice No.".
+- service_date: use the date tugs worked (Sales Order Date / Job Card Date), NOT the
+  invoice issue date. On Boluda Rotterdam invoices the Sales Order Date line reads:
+  "Sales Order XXXXX  Job Card XXXXXXX  Date DD.MM.YYYY".
+- amounts: Dutch invoices use European format — 4.648,00 = 4648.00. Strip dots
+  (thousands separators) and replace commas with decimal points.
+- If two tug lines appear for the same manoeuvre (e.g. TUG 1 / TUG 2 each at the same
+  rate), consolidate into ONE line_item with tug_count = 2 and amount = single-tug rate.
+- If handwritten notes appear, add a "notes" array of strings at the end.
+'''
+
+_PROMPT_SOF = '''\
+Convert this Statement of Facts (SOF) or timesheet to JSON using EXACTLY this structure.
+Use ISO dates (YYYY-MM-DD) and 24-hour times (HH:MM). Use null for any field not found.
+
+{
+  "vessel": {
+    "name": "<vessel name>",
+    "imo": "<IMO number as string, or null>",
+    "gt": <gross tonnage as number, or null>,
+    "loa": <length overall in metres as number, or null>
+  },
+  "port": "<port name>",
+  "events": [
+    {
+      "service_type": "<Berth | Unberth | Shifting | empty string for non-towage events>",
+      "description": "<event description, copy verbatim>",
+      "date": "<YYYY-MM-DD>",
+      "time": "<HH:MM or null>",
+      "tug_count": <number or null>
+    }
+  ]
+}
+
+Rules:
+- Include ALL events from the SOF, not just towage events. Non-towage events
+  (e.g. EOSP, NOR tendered, commenced loading) get service_type: ""
+- Towage events: set service_type to "Berth" (arrival/inward), "Unberth"
+  (departure/outward), or "Shifting" (moving between berths)
+- Key Berth indicators: "first line ashore", "all fast", "tugs made fast" (arrival),
+  "commenced mooring", "pilot on board" (inward)
+- Key Unberth indicators: "last line", "cast off", "tugs made fast" (departure),
+  "commenced unmooring", "passing breakwater" (outward)
+- tug_count: extract from the event line if stated (e.g. "2 tugs"), else null
+- If the SOF covers multiple vessels, extract events for ALL vessels but note the
+  vessel name in the description for each event
+- dates: convert DD/MM/YYYY, DD.MM.YYYY to ISO YYYY-MM-DD
+- times: convert to 24-hour HH:MM format
+'''
+
+_PROMPT_TUG_CONFIRMATION = '''\
+Convert this port agent tug confirmation email to JSON using EXACTLY this structure.
+Use ISO dates (YYYY-MM-DD) and 24-hour times (HH:MM). Use null for any field not found.
+
+{
+  "vessel": {
+    "name": "<vessel name — from subject line or email body>",
+    "imo": null,
+    "gt": null,
+    "loa": null
+  },
+  "port": "<port name>",
+  "source_type": "tug_confirmation_email",
+  "events": [
+    {
+      "service_type": "<Berth | Unberth>",
+      "description": "<brief description>",
+      "date": "<YYYY-MM-DD or null if not stated>",
+      "time": "<HH:MM or null if not stated>",
+      "tug_count": <number or null>,
+      "terminal": "<terminal name or null>",
+      "berth": "<berth number/letter or null>"
+    }
+  ]
+}
+
+Rules:
+- If "Tug Count (In/Out): N" is a single number, create TWO events — one Berth and
+  one Unberth — each with tug_count: N
+- If tug counts are separate (e.g. "In: 2 / Out: 3"), use each count on its event
+- ETD in the subject line = Unberth date. ETA or arrival date = Berth date.
+  If only ETD is stated, set Unberth date to that value and Berth date to null.
+- Vessel name: extract from the subject line (format: .../VESSEL NAME/.../PORT/...)
+- Terminal Name → terminal field; Berth Number → berth field
+- Do not invent times or dates not explicitly stated — use null
+- If this is an email chain, read the MOST RECENT agent reply for the confirmed
+  values (ignore the blank template in the original request)
+'''
+
+# ─────────────────────────────────────────────
 # Premium styling
 # ─────────────────────────────────────────────
 PREMIUM_CSS = """
@@ -673,6 +803,19 @@ with tab_verify:
             for f in other_files:
                 st.markdown(f"- `{f.name}`")
             st.info("Will be auto-processed in a future release.")
+
+    # ── ChatGPT extraction prompts ────────────
+    with st.expander("💬 ChatGPT extraction prompts — click to copy & paste into ChatGPT"):
+        pt_inv, pt_sof, pt_tug = st.tabs(["📄 Invoice", "📋 SOF", "📎 Tug Confirmation"])
+        with pt_inv:
+            st.caption("Use this prompt to convert an invoice image or PDF into the Invoice JSON required above.")
+            st.code(_PROMPT_INVOICE, language=None)
+        with pt_sof:
+            st.caption("Use this prompt to convert a Statement of Facts (SOF) or timesheet into the SOF JSON required above.")
+            st.code(_PROMPT_SOF, language=None)
+        with pt_tug:
+            st.caption("Use this prompt when you only have a tug count confirmation email from the port agent (no full SOF).")
+            st.code(_PROMPT_TUG_CONFIRMATION, language=None)
 
     st.divider()
 
