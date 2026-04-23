@@ -922,6 +922,10 @@ def route(
         str(l.get("service_type") or "").lower() == "overtime"
         for l in invoice_lines
     )
+    num_ot_lines = sum(
+        1 for l in invoice_lines
+        if str(l.get("service_type") or "").lower() == "overtime"
+    )
 
     for idx, invoice_line in enumerate(invoice_lines, start=1):
         service_type = str(
@@ -1018,18 +1022,46 @@ def route(
             # 1. Handler
             # --- Separately-billed overtime line (e.g. Las Palmas "Servicios especiales") ---
             if service_type.lower() == "overtime":
+                ot_surcharge_pct = float(profile.get("overtime_surcharge_pct") or 0.0)
                 ot_rate = float(profile.get("overtime_hourly_rate") or 0.0)
-                if not ot_rate:
+
+                if ot_surcharge_pct:
+                    # Percentage-of-base model (Tenerife/La Palma: 10% Extra Time surcharge,
+                    # billed per tug as separate lines). Use the most recent non-OT line's
+                    # expected amount as the base.
+                    last_service_expected = next(
+                        (r.expected_amount for r in reversed(line_item_results)
+                         if r.service_description.lower() != "overtime"),
+                        None
+                    )
+                    if last_service_expected and num_ot_lines:
+                        expected_ot = round(
+                            last_service_expected * ot_surcharge_pct / 100 / num_ot_lines, 2
+                        )
+                        tariff_rule_cited = (
+                            f"{port} tariff — Extra Time surcharge: {ot_surcharge_pct:.0f}% "
+                            f"of base EUR {last_service_expected:,.2f} / {num_ot_lines} tug(s) "
+                            f"= EUR {expected_ot:,.2f}"
+                        )
+                    else:
+                        expected_ot = round(invoiced_amount, 2)
+                        tariff_rule_cited = (
+                            f"{port} tariff — Extra Time surcharge {ot_surcharge_pct:.0f}% "
+                            f"(no preceding service line found; accepted as invoiced)"
+                        )
+                elif ot_rate:
+                    expected_ot = round(ot_rate, 2)
+                    tariff_rule_cited = (
+                        f"{port} tariff — Overtime per tug: "
+                        f"EUR {ot_rate:,.2f}/hr (1 tug × 1 hr or fraction)"
+                    )
+                else:
                     raise ValueError(
                         f"Port '{port}' has an Overtime line but no "
-                        f"'overtime_hourly_rate' in its calculation profile."
+                        f"'overtime_hourly_rate' or 'overtime_surcharge_pct' in its calculation profile."
                     )
-                expected_ot = round(ot_rate, 2)
+
                 handler_result = {"base_rate": expected_ot, "total_rate": expected_ot}
-                tariff_rule_cited = (
-                    f"{port} tariff — Overtime per tug: "
-                    f"EUR {ot_rate:,.2f}/hr (1 tug × 1 hr or fraction)"
-                )
                 # OT lines don't have a dedicated SOF event — mark as found to avoid
                 # confidence penalty; the related maneuver's SOF event is implicit
                 sof_event_found = True
