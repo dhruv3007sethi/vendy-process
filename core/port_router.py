@@ -637,7 +637,8 @@ def _dispatch_handler(
 
     # --- fixed_plus_variable (Algeciras, Valencia) ---
     elif pattern == "fixed_plus_variable":
-        zone_key = invoice_line.get("zone_key") or invoice_line.get("terminal") or invoice_line.get("zone")
+        zone_key = (invoice_line.get("zone_key") or invoice_line.get("terminal")
+                    or invoice_line.get("zone") or profile.get("default_zone"))
         if "rates" in profile:
             profile_rates = profile["rates"]
             if zone_key and zone_key in profile_rates:

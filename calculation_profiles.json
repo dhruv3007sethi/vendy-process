@@ -463,6 +463,8 @@
       "commute_surcharges": true,
       "commute_surcharge_basis": "fixed_fee_per_tug_per_origin_destination_pair",
       "special_services_hourly": 1001.88,
+      "overtime_hourly_rate": 1001.88,
+      "default_zone": "comercial",
       "requires_human_review_for": [],
       "notes": "Commute surcharges apply when tug travels between port zones. Escorting service charged at 50% of standard rate"
     },
