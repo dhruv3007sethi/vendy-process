@@ -914,6 +914,14 @@ def route(
 
     line_item_results = []
 
+    # Detect separately-billed overtime lines (e.g. Las Palmas "Servicios especiales").
+    # When present, suppress internal OT calculation on Berth/Unberth lines to avoid
+    # double-counting — OT is validated on its own dedicated line(s) instead.
+    separate_ot_lines = any(
+        str(l.get("service_type") or "").lower() == "overtime"
+        for l in invoice_lines
+    )
+
     for idx, invoice_line in enumerate(invoice_lines, start=1):
         service_type = str(
             invoice_line.get("service_type") or
@@ -1007,23 +1015,44 @@ def route(
 
         try:
             # 1. Handler
-            handler_result = _dispatch_handler(
-                port=port,
-                profile=profile,
-                tariff_data=tariff_data,
-                invoice_line=invoice_line,
-                sof_event=sof_event,
-                tug_count=tug_count
-            )
+            # --- Separately-billed overtime line (e.g. Las Palmas "Servicios especiales") ---
+            if service_type.lower() == "overtime":
+                ot_rate = float(profile.get("overtime_hourly_rate") or 0.0)
+                if not ot_rate:
+                    raise ValueError(
+                        f"Port '{port}' has an Overtime line but no "
+                        f"'overtime_hourly_rate' in its calculation profile."
+                    )
+                expected_ot = round(ot_rate, 2)
+                handler_result = {"base_rate": expected_ot, "total_rate": expected_ot}
+                tariff_rule_cited = (
+                    f"{port} tariff — Overtime per tug: "
+                    f"EUR {ot_rate:,.2f}/hr (1 tug × 1 hr or fraction)"
+                )
+                # OT lines don't have a dedicated SOF event — mark as found to avoid
+                # confidence penalty; the related maneuver's SOF event is implicit
+                sof_event_found = True
+                sof_event_cited = "Overtime charge for associated berth/unberth maneuver"
+            else:
+                handler_result = _dispatch_handler(
+                    port=port,
+                    profile=profile,
+                    tariff_data=tariff_data,
+                    invoice_line=invoice_line,
+                    sof_event=sof_event,
+                    tug_count=tug_count
+                )
+                tariff_rule_cited = (
+                    f"{port} tariff — pattern: {profile.get('calculation_pattern')}, "
+                    f"dim: {dim_type}={dim_value_for_line}, "
+                    f"zone: {invoice_line.get('zone', 'N/A')}"
+                )
 
-            tariff_rule_cited = (
-                f"{port} tariff — pattern: {profile.get('calculation_pattern')}, "
-                f"dim: {dim_type}={dim_value_for_line}, "
-                f"zone: {invoice_line.get('zone', 'N/A')}"
+            # 2. Surcharges (skip for separately-billed overtime lines)
+            surcharge_list = (
+                [] if service_type.lower() == "overtime"
+                else _build_surcharge_list(invoice_line, profile, port)
             )
-
-            # 2. Surcharges
-            surcharge_list = _build_surcharge_list(invoice_line, profile, port)
             surcharge_report = None
             if surcharge_list:
                 # Use base_rate if available (raw calc), otherwise total_charge
@@ -1045,7 +1074,10 @@ def route(
             # Also skip if no overtime_handler is declared in the profile (port doesn't bill overtime).
             skip_overtime_patterns = {"hp_hourly", "hourly_with_minimum", "per_service_tug_count_specific"}
 
-            if overtime_handler_key and profile.get("calculation_pattern") not in skip_overtime_patterns:
+            if (overtime_handler_key
+                    and profile.get("calculation_pattern") not in skip_overtime_patterns
+                    and not separate_ot_lines
+                    and service_type.lower() != "overtime"):
                 actual_duration = _get_duration_hrs(sof_event, invoice_line)
                 standard_duration = float(
                     tariff_data.get("billing_logic_definitions", {})
@@ -1098,13 +1130,17 @@ def route(
                 )
 
             # 4. Backward inference — find candidate explanations for any variance
+            # Skip for separately-billed OT lines: rate is fixed, not bracket-based
             known_surcharge_types = [s["type"] for s in surcharge_list]
-            candidate_explanations = _infer_plausible_conditions(
-                profile=profile,
-                dim_value=dim_value_for_line,
-                invoiced_amount=invoiced_amount,
-                known_surcharge_types=known_surcharge_types
-            )
+            if service_type.lower() == "overtime":
+                candidate_explanations = []
+            else:
+                candidate_explanations = _infer_plausible_conditions(
+                    profile=profile,
+                    dim_value=dim_value_for_line,
+                    invoiced_amount=invoiced_amount,
+                    known_surcharge_types=known_surcharge_types
+                )
 
             # 4b. Contract discount — apply to handler total_rate if configured
             contract_discount_pct = _resolve_contract_discount_pct(profile, service_date)

@@ -126,13 +126,15 @@ Use ISO dates (YYYY-MM-DD). Use null for any field not found.
 3. LINE ITEMS
 - Each charge must be a separate line_item.
 - Map service types:
-    "Atraque"           → Berth
-    "Desatraque"        → Unberth
-    "Shift" / "Shifting"→ Shifting
+    "Atraque"                                → Berth
+    "Desatraque"                             → Unberth
+    "Shift" / "Shifting"                     → Shifting
+    "Servicios especiales" / "Special services" → Overtime
 - description: include full readable line (tug names, location, berth info).
 - date: use the specific event date for that line.
 - amount: convert European format — "3.468,83" → 3468.83
-- is_adjustment: true ONLY for discounts, VAT, bunker surcharges. false for towage lines.
+- is_adjustment: true ONLY for discounts, VAT, bunker surcharges. false for towage lines
+  including Overtime.
 
 4. TUG COUNT AND OPERATIONAL STATUS
 Spanish towage invoices mark each tug with an operational status code:
