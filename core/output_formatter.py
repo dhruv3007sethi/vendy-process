@@ -75,6 +75,10 @@ class FormattedResult:
     human_review_required: bool = False
     summary_notes: List[str] = field(default_factory=list)
 
+    invoice_amount_gross: float = 0.0   # sum of service lines (before discounts/surcharges)
+    fuel_surcharge_total: float = 0.0   # bunker/fuel adjustment lines
+    invoice_amount_net: float = 0.0     # gross minus discount adjustment lines
+
 
 # ---------------------------------------------------------------------------
 # CONFIDENCE SCORING
@@ -312,7 +316,10 @@ def build_result(
     vessel_dimension_value: float,
     service_date: str,
     line_items: List[LineItemResult],
-    currency: str = "EUR"
+    currency: str = "EUR",
+    invoice_amount_gross: float = 0.0,
+    fuel_surcharge_total: float = 0.0,
+    invoice_amount_net: float = 0.0,
 ) -> FormattedResult:
     """
     Assembles a FormattedResult from a list of LineItemResults.
@@ -374,7 +381,10 @@ def build_result(
         overall_confidence=overall_confidence,
         overall_confidence_label=overall_confidence_label,
         human_review_required=human_review_required,
-        summary_notes=summary_notes
+        summary_notes=summary_notes,
+        invoice_amount_gross=invoice_amount_gross,
+        fuel_surcharge_total=fuel_surcharge_total,
+        invoice_amount_net=invoice_amount_net,
     )
 
 
@@ -405,6 +415,9 @@ def to_dict(result: FormattedResult) -> dict:
         "total_variance": result.total_variance,
         "human_review_required": result.human_review_required,
         "summary_notes": result.summary_notes,
+        "invoice_amount_gross": result.invoice_amount_gross,
+        "fuel_surcharge_total": result.fuel_surcharge_total,
+        "invoice_amount_net": result.invoice_amount_net,
         "line_items": [
             {
                 "line_number": li.line_number,
