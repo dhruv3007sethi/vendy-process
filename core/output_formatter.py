@@ -211,14 +211,7 @@ def build_line_item(
         overtime_result : OvertimeResult from overtime_calculator (or None)
     """
     # 1. Determine Base Rate
-    # Handlers might return 'total_rate' (Ceuta), 'total_charge' (Guaymas), 
-    # or 'base_rate' (Raw calc).
-    base = float(
-        handler_result.get('total_rate') or
-        handler_result.get('total_charge') or
-        handler_result.get('base_rate') or
-        handler_result.get('calculated_amount') or 0.0
-    )
+    base = float(handler_result.get('total_rate') or 0.0)
 
     # 2. Add Surcharges
     surcharge_total = surcharge_report.total_surcharge_amount if surcharge_report else 0.0

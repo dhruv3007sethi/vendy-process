@@ -142,6 +142,7 @@ def calculate_hourly_with_minimum(
             minimum_applied = True
 
         return {
+            'total_rate': round(total, 2),
             'total_charge': round(total, 2),
             'pattern_used': 'block_plus_overflow',
             'base_charge': round(base_charge_display, 2),
@@ -165,9 +166,10 @@ def calculate_hourly_with_minimum(
         total = max(charge_before_min, minimum_charge)
 
         return {
+            'total_rate': round(total, 2),
             'total_charge': round(total, 2),
             'pattern_used': 'hourly_minimum',
-            'base_charge': round(charge_before_min, 2), # The calculated amount before min check
+            'base_charge': round(charge_before_min, 2),
             'overflow_charge': 0.0,
             'minimum_applied': minimum_applied,
             'minimum_charge': minimum_charge,
@@ -184,6 +186,7 @@ def calculate_hourly_with_minimum(
             charge *= tug_count
 
         return {
+            'total_rate': round(charge, 2),
             'total_charge': round(charge, 2),
             'pattern_used': 'simple_hourly',
             'base_charge': round(charge, 2),

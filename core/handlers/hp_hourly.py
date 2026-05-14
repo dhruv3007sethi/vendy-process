@@ -208,9 +208,10 @@ def calculate_hp_hourly(
         })
 
     return {
+        'total_rate': round(total_charge, 2),
         'total_charge': round(total_charge, 2),
         'rate_per_hp_hour': effective_rate,
-        'base_rate_per_hp_hour': base_rate_per_hp_hour, # Raw rate for reference
+        'base_rate_per_hp_hour': base_rate_per_hp_hour,
         'tug_breakdown': tug_breakdown,
         'overtime_total': round(overtime_total, 2),
         'discount_applied': discount_applied,

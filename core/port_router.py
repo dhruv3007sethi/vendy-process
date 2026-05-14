@@ -386,7 +386,7 @@ def _infer_plausible_conditions(
             continue
         try:
             result = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
-            expected = round(float(result.get("base_rate") or 0.0), 2)
+            expected = round(float(result.get("total_rate") or 0.0), 2)
             v = _variance(expected)
             if _within(v):
                 candidates.append({
@@ -407,7 +407,7 @@ def _infer_plausible_conditions(
     if default_rates and isinstance(default_rates, dict):
         try:
             result = calculate_fixed_plus_variable(dim_value, default_rates, default_zone)
-            base_rate = round(float(result.get("base_rate") or 0.0), 2)
+            base_rate = round(float(result.get("total_rate") or 0.0), 2)
         except Exception as e:
             logger.warning(f"Backward inference: default zone '{default_zone}' failed: {e}")
 
@@ -435,7 +435,7 @@ def _infer_plausible_conditions(
                 continue
             try:
                 zone_result = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
-                zone_base = round(float(zone_result.get("base_rate") or 0.0), 2)
+                zone_base = round(float(zone_result.get("total_rate") or 0.0), 2)
             except Exception as e:
                 logger.debug(f"Backward inference: zone '{zone}' calculation failed: {e}")
                 continue
@@ -767,7 +767,8 @@ def _dispatch_handler(
             raise ValueError(f"Non-numeric FX rate: {invoice_line.get('fx_rate_mxn_usd')!r}")
         if fx_rate > 0:
             hp_result = dict(hp_result)
-            hp_result["total_charge"] = round(hp_result["total_charge"] / fx_rate, 2)
+            hp_result["total_rate"] = round(hp_result["total_rate"] / fx_rate, 2)
+            hp_result["total_charge"] = hp_result["total_rate"]
             hp_result["fx_rate_applied"] = fx_rate
             hp_result["currency_note"] = "MXN charges converted to USD at invoice FX rate"
         return hp_result
@@ -810,7 +811,7 @@ def _dispatch_handler(
             raise ValueError(f"Non-numeric FX rate: {invoice_line.get('fx_rate_mxn_usd')!r}")
         if fx_rate > 0:
             result = dict(result)
-            for key in ("total_charge", "base_rate", "effective_rate", "overtime_charge", "third_tug_charge"):
+            for key in ("total_rate", "total_charge", "base_rate", "effective_rate", "overtime_charge", "third_tug_charge"):
                 if result.get(key):
                     result[key] = round(result[key] / fx_rate, 2)
         return result
@@ -1161,12 +1162,7 @@ def route(
             )
             surcharge_report = None
             if surcharge_list:
-                # Use base_rate if available (raw calc), otherwise total_charge
-                base_for_surcharges = float(
-                    handler_result.get("base_rate") or
-                    handler_result.get("total_charge") or
-                    handler_result.get("total_rate") or 0.0
-                )
+                base_for_surcharges = float(handler_result.get("total_rate") or 0.0)
                 surcharge_report = apply_surcharges(
                     base_rate=base_for_surcharges,
                     applicable_surcharges=surcharge_list,
@@ -1203,10 +1199,7 @@ def route(
                     ot_kwargs["tug_count"] = tug_count  # only this pattern needs tug_count
                 else:
                     # Pattern 2–6: Percentage/prorata based on calculated rate
-                    base_for_overtime = float(
-                        handler_result.get("base_rate") or
-                        handler_result.get("total_rate") or 0.0
-                    )
+                    base_for_overtime = float(handler_result.get("total_rate") or 0.0)
                     ot_kwargs["base_rate"] = base_for_overtime
 
                     if overtime_pattern == "prorata_10min_rounding":
@@ -1281,7 +1274,7 @@ def route(
             # 5. Build Line Item
             # Compute expected amount to determine exact_tariff_match
             _hr = handler_result
-            _expected_base = float(_hr.get('total_rate') or _hr.get('total_charge') or _hr.get('base_rate') or 0.0)
+            _expected_base = float(_hr.get('total_rate') or 0.0)
             _expected_surcharge = surcharge_report.total_surcharge_amount if surcharge_report else 0.0
             _expected_overtime = overtime_result.overtime_charge if overtime_result else 0.0
             _expected_total = _expected_base + _expected_surcharge + _expected_overtime

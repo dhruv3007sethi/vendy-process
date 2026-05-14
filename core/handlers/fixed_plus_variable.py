@@ -233,6 +233,7 @@ def calculate_fixed_plus_variable(
             fixed, variable = _extract_fixed_variable(rates_source, zone_key)
             base_rate = fixed + (variable * gt_value)
             return {
+                'total_rate': round(base_rate, 2),
                 'base_rate': round(base_rate, 2),
                 'fixed_part': fixed,
                 'variable_part': variable,
@@ -267,6 +268,7 @@ def calculate_fixed_plus_variable(
         fixed, variable = _extract_fixed_variable(row, zone_key)
         base_rate = fixed + (variable * gt_value)
         return {
+            'total_rate': round(base_rate, 2),
             'base_rate': round(base_rate, 2),
             'fixed_part': fixed,
             'variable_part': variable,

@@ -200,6 +200,7 @@ def calculate_per_service_tug_count(
             f"Tugs={tug_count}, Move={movement_type}, Col={rate_column}"
         )
         return {
+            'total_rate': 0.0,
             'total_charge': 0.0,
             'base_rate': None,
             'effective_rate': None,
@@ -262,6 +263,7 @@ def calculate_per_service_tug_count(
     total_charge = effective_rate + overtime_charge + third_tug_charge
 
     return {
+        'total_rate': round(total_charge, 2),
         'total_charge': round(total_charge, 2),
         'base_rate': base_rate,
         'effective_rate': round(effective_rate, 2),
