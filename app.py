@@ -1001,6 +1001,9 @@ with tab_verify:
             st.session_state["result"]           = result
             st.session_state["adjustment_lines"] = adjustment_lines
             st.session_state["selected_port"]    = selected_port
+            # DEBUG — remove after diagnosis
+            st.session_state["_debug_svc"]  = service_lines
+            st.session_state["_debug_adj"]  = adjustment_lines
 
         except FileNotFoundError as e:
             fname = str(e)
@@ -1036,6 +1039,14 @@ with tab_verify:
         result: dict          = st.session_state["result"]
         adjustment_lines: list = st.session_state["adjustment_lines"]
         port_key: str          = st.session_state["selected_port"]
+
+        # DEBUG — remove after diagnosis
+        if "_debug_svc" in st.session_state:
+            with st.expander("DEBUG: prepare_lines output", expanded=True):
+                st.write(f"**service_lines ({len(st.session_state['_debug_svc'])}):**")
+                st.json(st.session_state["_debug_svc"])
+                st.write(f"**adjustment_lines ({len(st.session_state['_debug_adj'])}):**")
+                st.json(st.session_state["_debug_adj"])
 
         verdict = result.get("overall_verdict", "")
 
