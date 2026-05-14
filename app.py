@@ -474,9 +474,13 @@ def _infer_service_type(description: str) -> str:
 
 def _is_adjustment_line(description: str, line: dict) -> bool:
     """Return True for discount, surcharge, VAT, bunker lines."""
-    d = description.lower()
-    if line.get("is_adjustment") is True:
+    is_adj = line.get("is_adjustment")
+    if is_adj is True:
         return True
+    if is_adj is False:
+        return False  # explicit False from extraction — trust it; avoids "iva" matching "arrival"
+    # No explicit flag — infer from description keywords
+    d = description.lower()
     return any(w in d for w in (
         "discount", "rebate", "bunker", "surcharge", "vat", "tax", "iva", "igic",
         "baf", "fuel", "adjustment", "korting", "remise"
@@ -1001,9 +1005,6 @@ with tab_verify:
             st.session_state["result"]           = result
             st.session_state["adjustment_lines"] = adjustment_lines
             st.session_state["selected_port"]    = selected_port
-            # DEBUG — remove after diagnosis
-            st.session_state["_debug_svc"]  = service_lines
-            st.session_state["_debug_adj"]  = adjustment_lines
 
         except FileNotFoundError as e:
             fname = str(e)
@@ -1039,14 +1040,6 @@ with tab_verify:
         result: dict          = st.session_state["result"]
         adjustment_lines: list = st.session_state["adjustment_lines"]
         port_key: str          = st.session_state["selected_port"]
-
-        # DEBUG — remove after diagnosis
-        if "_debug_svc" in st.session_state:
-            with st.expander("DEBUG: prepare_lines output", expanded=True):
-                st.write(f"**service_lines ({len(st.session_state['_debug_svc'])}):**")
-                st.json(st.session_state["_debug_svc"])
-                st.write(f"**adjustment_lines ({len(st.session_state['_debug_adj'])}):**")
-                st.json(st.session_state["_debug_adj"])
 
         verdict = result.get("overall_verdict", "")
 
