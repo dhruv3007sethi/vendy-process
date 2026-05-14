@@ -969,6 +969,7 @@ with tab_verify:
                     vessel_name=vessel_name,
                     service_date=service_date,
                     match_tolerance_pct=1.0,
+                    adjustment_lines=adjustment_lines,
                 )
 
             st.session_state["result"]           = result
@@ -1087,6 +1088,15 @@ with tab_verify:
         hc1.metric("Total Variance", fmt_eur(variance_val, result.get("currency", "EUR")))
         hc2.metric("Confidence",     f"{conf_label} ({conf_score:.0%})")
         hc3.metric("Validated At",   result.get("validated_at", "—")[:19].replace("T", " "))
+
+        _inv_gross = result.get("invoice_amount_gross", 0.0)
+        _fuel_sc   = result.get("fuel_surcharge_total", 0.0)
+        _inv_net   = result.get("invoice_amount_net", 0.0)
+        if _inv_gross or _inv_net:
+            hn1, hn2, hn3 = st.columns(3)
+            hn1.metric("Invoice Amount Gross", fmt_eur(_inv_gross, result.get("currency", "EUR")))
+            hn2.metric("Fuel Surcharge",       fmt_eur(_fuel_sc,   result.get("currency", "EUR")))
+            hn3.metric("Invoice Amount Net",   fmt_eur(_inv_net,   result.get("currency", "EUR")))
 
         st.divider()
 
@@ -1413,9 +1423,52 @@ with tab_verify:
 
         # ── 8k. Approve / Escalate ─────────────
         _section_header("Officer Action")
+        _needs_override_comment = verdict in ("MISMATCH", "REVIEW_REQUIRED")
+        if _needs_override_comment:
+            st.text_area(
+                "Reason for accepting this invoice (required to approve)",
+                placeholder="e.g. Zone B confirmed by port agent. Variance within acceptable range.",
+                key="override_comment",
+                height=80,
+            )
         ba1, ba2 = st.columns(2)
         if ba1.button("✓ Approve Invoice", use_container_width=True, key="approve_btn"):
-            st.success("Invoice approved by officer.")
+            _override_comment = st.session_state.get("override_comment", "").strip()
+            if _needs_override_comment and not _override_comment:
+                st.error("A reason is required to approve an invoice with a MISMATCH or REVIEW flag.")
+            else:
+                now_utc = datetime.now(timezone.utc).isoformat(timespec="seconds")
+                existing = load_comments()
+                rec_key = (
+                    f"OVERRIDE::{port_key}::{result.get('invoice_reference','')}::"
+                    f"{result.get('service_date','')}"
+                )
+                record = {
+                    "_key":                  rec_key,
+                    "port":                  port_key,
+                    "invoice_reference":     result.get("invoice_reference", ""),
+                    "vessel_name":           result.get("vessel_name", ""),
+                    "service_date":          result.get("service_date", ""),
+                    "line_number":           "ALL",
+                    "service_description":   "Invoice-level officer approval",
+                    "engine_verdict":        verdict,
+                    "officer_override":      True,
+                    "officer_comment":       _override_comment or "Approved — no mismatch",
+                    "invoice_amount_gross":  result.get("invoice_amount_gross", 0.0),
+                    "fuel_surcharge_total":  result.get("fuel_surcharge_total", 0.0),
+                    "invoice_amount_net":    result.get("invoice_amount_net", 0.0),
+                    "saved_at":              now_utc,
+                }
+                lookup = {r.get("_key"): i for i, r in enumerate(existing) if r.get("_key")}
+                if rec_key in lookup:
+                    existing[lookup[rec_key]] = record
+                else:
+                    existing.append(record)
+                try:
+                    save_comments(existing)
+                    st.success("Invoice accepted and recorded in Officer Comments Log.")
+                except Exception as e:
+                    st.error(f"Failed to save approval: {e}")
         if ba2.button("⚑ Escalate for Review", use_container_width=True, key="escalate_btn"):
             st.warning("Invoice escalated for human review.")
 
@@ -1466,20 +1519,22 @@ with tab_log:
         display_rows = []
         for r in filtered:
             display_rows.append({
-                "Saved At":          r.get("saved_at", "")[:19].replace("T", " "),
-                "Port":              r.get("port", ""),
-                "Invoice Ref":       r.get("invoice_reference", ""),
-                "Vessel":            r.get("vessel_name", ""),
-                "Date":              r.get("service_date", ""),
-                "Line":              r.get("line_number", ""),
-                "Description":       r.get("service_description", ""),
-                "Engine Expected":   r.get("engine_expected"),
-                "Invoiced":          r.get("invoiced_amount"),
-                "Officer Override":  r.get("officer_expected_override"),
-                "Verdict":           r.get("engine_verdict", ""),
-                "Variance %":        r.get("variance_pct"),
-                "Handler":           r.get("handler_used", ""),
-                "Comment":           r.get("officer_comment", ""),
+                "Saved At":           r.get("saved_at", "")[:19].replace("T", " "),
+                "Port":               r.get("port", ""),
+                "Invoice Ref":        r.get("invoice_reference", ""),
+                "Vessel":             r.get("vessel_name", ""),
+                "Date":               r.get("service_date", ""),
+                "Line":               r.get("line_number", ""),
+                "Description":        r.get("service_description", ""),
+                "Engine Expected":    r.get("engine_expected"),
+                "Invoiced":           r.get("invoiced_amount"),
+                "Officer Override":   r.get("officer_expected_override"),
+                "Verdict":            r.get("engine_verdict", ""),
+                "Variance %":         r.get("variance_pct"),
+                "Handler":            r.get("handler_used", ""),
+                "Inv. Amount Net":    r.get("invoice_amount_net"),
+                "Override Approved":  "YES" if r.get("officer_override") else "",
+                "Comment":            r.get("officer_comment", ""),
             })
 
         st.dataframe(

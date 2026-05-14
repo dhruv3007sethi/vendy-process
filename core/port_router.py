@@ -866,7 +866,8 @@ def route(
     vendor: str = "Boluda",
     vessel_name: str = "",
     service_date: str = "",
-    match_tolerance_pct: float = 1.0
+    match_tolerance_pct: float = 1.0,
+    adjustment_lines: List[dict] = None,
 ) -> dict:
     """
     Main entry point. Routes an invoice through the full calculation pipeline.
@@ -1262,7 +1263,22 @@ def route(
 
         line_item_results.append(line_result)
 
-    # 5. Assemble Full Result
+    # 5. Compute invoice net amounts from adjustment lines
+    _DISCOUNT_KW = ("discount", "rebate", "korting", "remise", "descuento")
+    _FUEL_KW = ("bunker", "baf", "fuel", "brandstof")
+    _discount_total = 0.0
+    _fuel_surcharge_total = 0.0
+    for _adj in (adjustment_lines or []):
+        _desc = (_adj.get("description") or "").lower()
+        _amt = abs(float(_adj.get("amount") or 0))
+        if any(w in _desc for w in _DISCOUNT_KW):
+            _discount_total += _amt
+        elif any(w in _desc for w in _FUEL_KW):
+            _fuel_surcharge_total += _amt
+    _invoice_amount_gross = round(sum(li.invoiced_amount for li in line_item_results), 2)
+    _invoice_amount_net = round(_invoice_amount_gross - _discount_total, 2)
+
+    # 6. Assemble Full Result
     result = build_result(
         invoice_reference=invoice_reference,
         vendor=vendor,
@@ -1272,7 +1288,10 @@ def route(
         vessel_dimension_value=dim_value,
         service_date=service_date,
         line_items=line_item_results,
-        currency=currency
+        currency=currency,
+        invoice_amount_gross=_invoice_amount_gross,
+        fuel_surcharge_total=round(_fuel_surcharge_total, 2),
+        invoice_amount_net=_invoice_amount_net,
     )
 
     return to_dict(result)
