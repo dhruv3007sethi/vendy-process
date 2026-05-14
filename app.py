@@ -160,7 +160,8 @@ Examples:
 
 If no tug status codes appear (e.g. Dutch/Belgian invoices listing "TUG 1 / TUG 2"),
 consolidate into ONE line_item with tug_count = number of tugs, active_tug_count = null,
-standby_tug_count = null, and amount = single-tug rate.
+standby_tug_count = null, and amount = TOTAL amount for all tugs combined (sum all tug lines).
+Example: TUG 1 = 4,648 and TUG 2 = 4,648 → amount = 9,296, tug_count = 2.
 
 5. ZONE
 - Extract zone ONLY if an explicit terminal, quay, or berth name is stated on the
