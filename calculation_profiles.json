@@ -67,7 +67,15 @@
       "zone_rate_columns": {
         "ZANDVLIET_KRUISSCHANS": "zandvliet_kallo_rate_eur",
         "KALLO": "zandvliet_kallo_rate_eur",
-        "ANTWERP_CITY": "antwerp_city_rate_eur"
+        "ANTWERP_CITY": "antwerp_city_rate_eur",
+        "ZANDVLIET": "zandvliet_kallo_rate_eur",
+        "KRUISSCHANS": "zandvliet_kallo_rate_eur",
+        "BERENDRECHT": "zandvliet_kallo_rate_eur",
+        "DEURGANCKDOK": "zandvliet_kallo_rate_eur",
+        "EUROPA_TERMINAL": "zandvliet_kallo_rate_eur",
+        "NOORDZEE_TERMINAL": "zandvliet_kallo_rate_eur",
+        "LIEFKENSHOEK": "zandvliet_kallo_rate_eur",
+        "KIELDRECHT": "zandvliet_kallo_rate_eur"
       },
       "surcharge_multipliers": {
         "dead_ship": 1.5,
@@ -93,7 +101,12 @@
       "zone_rate_columns": {
         "ROTTERDAM_AREA": "rotterdam_rate",
         "EUROPOORT_AREA": "europoort_rate",
-        "MAASVLAKTE_II": "maasvlakte_ii_rate"
+        "MAASVLAKTE_II": "maasvlakte_ii_rate",
+        "EUROPOORT": "europoort_rate",
+        "ZEESTEIGER": "europoort_rate",
+        "WAALHAVEN": "rotterdam_rate",
+        "BOTLEK": "rotterdam_rate",
+        "MAASVLAKTE": "maasvlakte_ii_rate"
       },
       "shifting_logic": {
         "intra_area": "40pct_surcharge_max_3hrs",

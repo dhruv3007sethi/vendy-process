@@ -37,6 +37,11 @@ from output_formatter import build_line_item, build_result, to_dict
 logger = logging.getLogger(__name__)
 
 
+class ZoneUnresolvableError(ValueError):
+    """Raised when a port has multiple rate columns but the invoice zone string
+    cannot be mapped to any known tariff area."""
+
+
 # ---------------------------------------------------------------------------
 # OVERTIME PATTERN MAPPING
 # Profile overtime_handler strings → overtime_calculator pattern keys
@@ -511,7 +516,8 @@ def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tup
     Strategy:
       1. Exact match — return as-is, zone_inferred=False
       2. Substring match (case-insensitive) — return first matching key, zone_inferred=True
-      3. No match — return None, zone_inferred=False (caller uses default rate column)
+      3. Token-level substring — split input, check each token against keys
+      4. No match — return None, zone_inferred=False
 
     Returns (resolved_key, zone_inferred).
     """
@@ -520,7 +526,7 @@ def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tup
     # 1. Exact match
     if zone_input in zone_rate_columns:
         return zone_input, False
-    # 2. Substring match: check if any word from zone_input appears in a key, or vice versa
+    # 2. Substring match: check if any key appears inside zone_input, or vice versa
     zone_lower = zone_input.lower()
     for key in zone_rate_columns:
         if key.lower() in zone_lower or zone_lower in key.lower():
@@ -534,7 +540,58 @@ def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tup
             if token in key_lower:
                 logger.info(f"Zone '{zone_input}' token '{token}' matched key '{key}' (zone_inferred=True)")
                 return key, True
-    return zone_input, False
+    # 4. No match
+    return None, False
+
+
+def _resolve_zone_from_tariff_areas(
+    zone_input: str,
+    tariff_data: dict,
+    zone_rate_columns: dict
+) -> tuple[Optional[str], bool]:
+    """
+    Secondary zone resolution: scan tariff operating area definitions for any
+    area key or terminal/description text that substring-matches zone_input.
+
+    Handles two common tariff formats:
+      - Rotterdam: operating_areas_and_terminals → {area: {terminals: [...], ...}}
+      - Antwerp:   operating_areas              → {area: {description: "...", ...}}
+
+    Returns (canonical_zone_key, zone_inferred=True) or (None, False).
+    Only returns a key that exists in zone_rate_columns.
+    """
+    if not zone_input or not zone_rate_columns:
+        return None, False
+
+    zone_lower = zone_input.lower()
+    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 4]
+    if not tokens:
+        return None, False
+
+    for field in ("operating_areas_and_terminals", "operating_areas"):
+        areas = tariff_data.get(field, {})
+        if not isinstance(areas, dict):
+            continue
+        for area_key, area_data in areas.items():
+            if area_key not in zone_rate_columns:
+                continue
+            if not isinstance(area_data, dict):
+                continue
+            # Build corpus: terminal names + description text
+            corpus_parts = [t.lower() for t in area_data.get("terminals", [])]
+            desc = area_data.get("description", "")
+            if desc:
+                corpus_parts.append(desc.lower())
+            corpus = " ".join(corpus_parts)
+            for token in tokens:
+                if token in corpus:
+                    logger.info(
+                        f"Zone '{zone_input}' token '{token}' matched tariff area '{area_key}' "
+                        f"via {field} lookup (zone_inferred=True)"
+                    )
+                    return area_key, True
+
+    return None, False
 
 
 def _resolve_contract_discount_pct(profile: dict, service_date: str) -> float:
@@ -582,13 +639,28 @@ def _dispatch_handler(
         zone_raw = invoice_line.get("zone") or invoice_line.get("route")
         route_hint = invoice_line.get("route_hint")
         zone_rate_columns = profile.get("zone_rate_columns", {})
+        # Pass 1: match against zone_rate_columns keys (exact / substring / token)
         zone, _zone_inferred = _resolve_zone_key(zone_raw, zone_rate_columns)
+        # Pass 2: if still unresolved, scan tariff operating_areas / operating_areas_and_terminals
+        if zone is None and zone_raw and zone_rate_columns:
+            zone, _zone_inferred = _resolve_zone_from_tariff_areas(zone_raw, tariff_data, zone_rate_columns)
         # Write resolved zone back so tariff_rule_cited shows the canonical key
         invoice_line["zone"] = zone
         invoice_line["_zone_inferred"] = _zone_inferred
         rates_data = _get_rates_data(tariff_data, zone, route_hint)
         # Zone-specific rate column (e.g. Antwerp: zandvliet_kallo_rate_eur vs antwerp_city_rate_eur)
         rate_col = zone_rate_columns.get(zone) if zone else None
+        # Guard: if this port has multiple rate columns but zone is still unresolved, raise a
+        # clear human-readable error rather than a cryptic "no rate field found" from the handler.
+        if rate_col is None and zone_rate_columns:
+            known = [k for k in zone_rate_columns if k == k.upper() and len(k) > 3]
+            if not known:
+                known = list(zone_rate_columns.keys())
+            label = zone_raw or "(not provided)"
+            raise ZoneUnresolvableError(
+                f"Zone '{label}' could not be mapped to a known tariff area "
+                f"({' / '.join(known)}). Confirm the correct area and resubmit."
+            )
         base_rate = lookup_bracket_rate(rates_data, dim_value, rate_col)
 
         # MXN → USD conversion (Guaymas and similar Mexican bracket ports)
@@ -1237,6 +1309,25 @@ def route(
                 tug_spec_from_invoice=tug_spec_from_invoice,
                 zone_inferred=zone_inferred,
                 candidate_explanations=candidate_explanations,
+                match_tolerance_pct=match_tolerance_pct
+            )
+
+        except ZoneUnresolvableError as e:
+            logger.warning(f"Port '{port}' line {idx} ('{service_type}'): zone unresolvable. {e}")
+            line_result = build_line_item(
+                line_number=idx,
+                service_description=service_type,
+                invoiced_amount=invoiced_amount,
+                currency=currency,
+                handler_result={"base_rate": 0.0, "total_rate": 0.0},
+                sof_event_cited=sof_event_cited,
+                tariff_rule_cited=f"ZONE_UNRESOLVED: {str(e)}",
+                handler_used="zone_unresolved",
+                sof_event_found=sof_event_found,
+                exact_tariff_match=False,
+                has_open_doubts=True,
+                human_review_flag=True,
+                human_review_reason=str(e),
                 match_tolerance_pct=match_tolerance_pct
             )
 
