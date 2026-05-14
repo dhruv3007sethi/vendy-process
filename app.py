@@ -163,6 +163,16 @@ consolidate into ONE line_item with tug_count = number of tugs, active_tug_count
 standby_tug_count = null, and amount = TOTAL amount for all tugs combined (sum all tug lines).
 Example: TUG 1 = 4,648 and TUG 2 = 4,648 → amount = 9,296, tug_count = 2.
 
+IMPORTANT — Dutch/Belgian adjustment lines (Discounts, Bunker, VAT):
+Each TUG block on Dutch/Belgian invoices has its own Discount and Bunker rows beneath it.
+You MUST extract these as separate adjustment line_items (is_adjustment: true).
+Sum the amounts across all TUG blocks into one line per type.
+Example: TUG 1 Discount = 2,184.56 and TUG 2 Discount = 2,184.56 → one adjustment line_item:
+  { "description": "Discounts", "amount": 4369.12, "is_adjustment": true }
+Example: TUG 1 BUNKER ADJ. FACTOR = 836.64 and TUG 2 BUNKER ADJ. FACTOR = 836.64 → one adjustment line_item:
+  { "description": "Bunker Adjustment Factor", "amount": 1673.28, "is_adjustment": true }
+Do NOT omit these lines — they are required for the net payable calculation.
+
 5. ZONE
 - Extract zone ONLY if an explicit terminal, quay, or berth name is stated on the
   invoice (e.g. "Moeve", "Terminal Norte", "Muelle 7", "Jetty B").
