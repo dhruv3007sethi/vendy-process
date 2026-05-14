@@ -968,6 +968,21 @@ with tab_verify:
             invoice_reference, vendor, vessel_name, service_date = normalise_invoice_fields(invoice_dict)
             service_lines, adjustment_lines = prepare_lines(invoice_dict)
 
+            # Cross-propagate vessel dimensions: if the SOF vessel block is missing
+            # loa/gt/grt, fill from the invoice header (both describe the same vessel).
+            _vessel_block = sof_dict.setdefault("vessel", {})
+            for _dim_key, _inv_keys in (
+                ("loa", ("loa", "loa_meters")),
+                ("gt",  ("gt", "gross_tonnage")),
+                ("grt", ("grt",)),
+            ):
+                if not _vessel_block.get(_dim_key):
+                    for _k in _inv_keys:
+                        _v = invoice_dict.get(_k)
+                        if _v:
+                            _vessel_block[_dim_key] = _v
+                            break
+
             with st.spinner("Running engine…"):
                 result = route(
                     port=selected_port,
@@ -1074,7 +1089,8 @@ with tab_verify:
                 f"producing a base rate of 0 (or only the fixed component). "
                 f"The expected amount shown is therefore incorrect.\n\n"
                 f"**To fix:** Add {_dim_key} to the SOF `vessel` block "
-                f"or to each invoice line item, then re-run verification."
+                f"or as a top-level field in the invoice JSON (e.g. `\"loa\": 184.0`), "
+                f"then re-run verification."
             )
 
         # ── 8b. Invoice header ──────────────────
