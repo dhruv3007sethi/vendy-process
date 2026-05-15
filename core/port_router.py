@@ -245,18 +245,23 @@ def _resolve_sof_event(sof_data: dict, service_type: str, service_date: str = ""
     return None
 
 
-def _get_duration_hrs(sof_event: Optional[dict], invoice_line: dict) -> float:
+def _get_duration_hrs(sof_event: Optional[dict], invoice_line: dict) -> tuple[float, bool]:
     """
-    Returns actual service duration in hours.
-    Prefers SOF event duration; falls back to invoice if not in SOF.
+    Returns (actual_service_duration_hrs, defaulted).
+
+    Prefers SOF event duration; falls back to invoice.
+    If neither source provides a value, returns (1.0, True).
     """
     if sof_event:
         duration = sof_event.get("duration_hrs") or sof_event.get("duration_hours")
         if duration is not None:
-            return float(duration)
+            return float(duration), False
 
-    # Fallback to invoice
-    return float(invoice_line.get("duration_hrs") or invoice_line.get("duration_hours") or 1.0)
+    inv_duration = invoice_line.get("duration_hrs") or invoice_line.get("duration_hours")
+    if inv_duration is not None:
+        return float(inv_duration), False
+
+    return 1.0, True
 
 
 def _get_tug_count(sof_event: Optional[dict], invoice_line: dict, tug_count_source: str) -> int:
@@ -838,7 +843,9 @@ def _dispatch_handler(
     # --- hp_hourly (Coatzacoalcos, Mazatlan) ---
     elif pattern == "hp_hourly":
         tug_hp_list = invoice_line.get("tug_hp_list") or [invoice_line.get("tug_hp", 0)]
-        duration = _get_duration_hrs(sof_event, invoice_line)
+        duration, duration_defaulted = _get_duration_hrs(sof_event, invoice_line)
+        if duration_defaulted:
+            logger.warning("hp_hourly: duration missing from SOF and invoice — defaulting to 1.0 hr")
         matrix = tariff_data.get("rate_table", [])
         hp_result = calculate_hp_hourly(
             grt_value=dim_value,
@@ -858,6 +865,9 @@ def _dispatch_handler(
             hp_result["total_charge"] = hp_result["total_rate"]
             hp_result["fx_rate_applied"] = fx_rate
             hp_result["currency_note"] = "MXN charges converted to USD at invoice FX rate"
+        if duration_defaulted:
+            hp_result = dict(hp_result) if not isinstance(hp_result, dict) else hp_result
+            hp_result["_duration_defaulted"] = True
         return hp_result
 
     # --- hourly_with_minimum (Panama) ---
@@ -868,18 +878,26 @@ def _dispatch_handler(
             (a for a in tariff_areas if area_name.lower() in str(a.get("area", "")).lower()),
             tariff_areas[0] if tariff_areas else {}
         )
-        duration = _get_duration_hrs(sof_event, invoice_line)
-        return calculate_hourly_with_minimum(
+        duration, duration_defaulted = _get_duration_hrs(sof_event, invoice_line)
+        if duration_defaulted:
+            logger.warning("hourly_with_minimum: duration missing from SOF and invoice — defaulting to 1.0 hr")
+        result = calculate_hourly_with_minimum(
             actual_duration_hrs=duration,
             area_tariff=area_tariff,
             tug_count=tug_count,
-            rate_is_per_tug=profile.get("rate_is_per_tug", True) # Panama specific flag
+            rate_is_per_tug=profile.get("rate_is_per_tug", True)
         )
+        if duration_defaulted:
+            result = dict(result) if not isinstance(result, dict) else result
+            result["_duration_defaulted"] = True
+        return result
 
     # --- per_service_tug_count (Ensenada) ---
     elif pattern == "per_service_tug_count_specific":
         movement = invoice_line.get("movement_type", "arrival")
-        duration = _get_duration_hrs(sof_event, invoice_line)
+        duration, duration_defaulted = _get_duration_hrs(sof_event, invoice_line)
+        if duration_defaulted:
+            logger.warning("per_service_tug_count: duration missing from SOF and invoice — defaulting to 1.0 hr")
         matrix = tariff_data.get("rate_table", [])
         result = calculate_per_service_tug_count(
             trb_value=dim_value,
@@ -901,6 +919,9 @@ def _dispatch_handler(
             for key in ("total_rate", "total_charge", "base_rate", "effective_rate", "overtime_charge", "third_tug_charge"):
                 if result.get(key):
                     result[key] = round(result[key] / fx_rate, 2)
+        if duration_defaulted:
+            result = dict(result) if not isinstance(result, dict) else result
+            result["_duration_defaulted"] = True
         return result
 
     # --- bracket_lookup_with_formula (Ceuta) ---
@@ -1242,6 +1263,16 @@ def route(
                     f"zone: {invoice_line.get('zone', 'N/A')}"
                 )
 
+            if handler_result.get("_duration_defaulted"):
+                human_review_flag = True
+                dur_note = (
+                    "Duration missing from SOF and invoice — "
+                    "defaulted to 1.0 hr; verify actual service duration"
+                )
+                human_review_reason = (
+                    f"{human_review_reason}; {dur_note}" if human_review_reason else dur_note
+                )
+
             # 2. Surcharges (skip for separately-billed overtime lines)
             surcharge_list = (
                 [] if service_type.lower() == "overtime"
@@ -1267,7 +1298,9 @@ def route(
                     and profile.get("calculation_pattern") not in skip_overtime_patterns
                     and not separate_ot_lines
                     and service_type.lower() != "overtime"):
-                actual_duration = _get_duration_hrs(sof_event, invoice_line)
+                actual_duration, _ot_dur_defaulted = _get_duration_hrs(sof_event, invoice_line)
+                if _ot_dur_defaulted:
+                    logger.warning("Overtime check: duration missing from SOF and invoice — defaulting to 1.0 hr")
                 standard_duration = float(
                     tariff_data.get("billing_logic_definitions", {})
                     .get("duration_logic", {})
