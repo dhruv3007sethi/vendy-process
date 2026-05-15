@@ -596,7 +596,7 @@ def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tup
         return best_key, True
 
     # 4. Token-level substring: rank by (matching_token_count, total_matched_chars)
-    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 3]
+    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 4]
     if tokens:
         tok_matches = []
         for key in zone_rate_columns:
@@ -684,6 +684,45 @@ def _resolve_zone_from_tariff_areas(
     return None, False
 
 
+def _resolve_zone_from_description(
+    invoice_line: dict,
+    zone_keys: dict,
+    tariff_data: dict = None,
+) -> tuple[Optional[str], bool]:
+    """
+    Fallback zone resolution: scan the invoice line's *description* field for
+    zone clues when the zone field itself could not be resolved.
+
+    Reuses _resolve_zone_key (substring/token matching against zone_keys dict
+    keys) and optionally _resolve_zone_from_tariff_areas (operating-area
+    description scan).
+
+    Returns (resolved_key, zone_inferred=True) or (None, False).
+    """
+    desc = invoice_line.get("description") or ""
+    if not desc or not zone_keys:
+        return None, False
+
+    zone, _ = _resolve_zone_key(desc, zone_keys)
+    if zone:
+        logger.info(
+            "Zone resolved from line description via zone-key match: '%s' (from '%s')",
+            zone, desc,
+        )
+        return zone, True
+
+    if tariff_data:
+        zone, _ = _resolve_zone_from_tariff_areas(desc, tariff_data, zone_keys)
+        if zone:
+            logger.info(
+                "Zone resolved from line description via tariff-area match: '%s' (from '%s')",
+                zone, desc,
+            )
+            return zone, True
+
+    return None, False
+
+
 def _resolve_contract_discount_pct(profile: dict, service_date: str) -> float:
     """
     Returns the flat contract discount % from profile["contract_discount"]["pct"].
@@ -734,6 +773,9 @@ def _dispatch_handler(
         # Pass 2: if still unresolved, scan tariff operating_areas / operating_areas_and_terminals
         if zone is None and zone_raw and zone_rate_columns:
             zone, _zone_inferred = _resolve_zone_from_tariff_areas(zone_raw, tariff_data, zone_rate_columns)
+        # Pass 3: if still unresolved, try the invoice line description for zone clues
+        if zone is None and zone_rate_columns:
+            zone, _zone_inferred = _resolve_zone_from_description(invoice_line, zone_rate_columns, tariff_data)
         # Write resolved zone back so tariff_rule_cited shows the canonical key
         invoice_line["zone"] = zone
         invoice_line["_zone_inferred"] = _zone_inferred
@@ -807,13 +849,26 @@ def _dispatch_handler(
                 # Zone explicitly specified — use its rates directly
                 rates_source = profile_rates[zone_key]
             elif zone_key:
-                # Zone specified but not found — fall back to tariff file
-                rates_source = tariff_data
+                # Zone specified but not found — try description fallback
+                desc_zone, _ = _resolve_zone_from_description(invoice_line, profile_rates)
+                if desc_zone and desc_zone in profile_rates:
+                    zone_key = desc_zone
+                    invoice_line["zone"] = zone_key
+                    invoice_line["_zone_inferred"] = True
+                    rates_source = profile_rates[zone_key]
+                else:
+                    rates_source = tariff_data
             else:
-                # No zone specified — use first (default) zone as base calculation.
-                # Backward inference will probe all zones separately.
-                first_zone = next(iter(profile_rates), None)
-                rates_source = profile_rates[first_zone] if first_zone else tariff_data
+                # No zone specified — try description fallback before defaulting
+                desc_zone, _ = _resolve_zone_from_description(invoice_line, profile_rates)
+                if desc_zone and desc_zone in profile_rates:
+                    zone_key = desc_zone
+                    invoice_line["zone"] = zone_key
+                    invoice_line["_zone_inferred"] = True
+                    rates_source = profile_rates[zone_key]
+                else:
+                    first_zone = next(iter(profile_rates), None)
+                    rates_source = profile_rates[first_zone] if first_zone else tariff_data
         else:
             # Rates in tariff file — navigate to the right section/table
             tariff_matrix = tariff_data.get("rate_table") or {}
@@ -826,13 +881,26 @@ def _dispatch_handler(
                     table_key = "gas_carrier_tariffs" if "gas" in vessel_type else "general_tariffs"
                     table = tariff_matrix.get(table_key) or next(iter(tariff_matrix.values()), {})
                 rates_source = table.get("rates", []) if isinstance(table, dict) else tariff_data
-            elif isinstance(tariff_matrix, dict) and zone_key and zone_key in tariff_matrix:
+            elif isinstance(tariff_matrix, dict) and zone_key:
                 # Generic zone-as-section-key (e.g. Cadiz Bay: geographic_sections_and_terminals)
-                section = tariff_matrix[zone_key]
-                if isinstance(section, dict):
-                    rates_source = section.get("rates") or section.get("tariffs") or []
+                effective_zone = zone_key
+                if zone_key not in tariff_matrix:
+                    # Zone specified but not found — try description fallback
+                    section_keys = {k: k for k in tariff_matrix if isinstance(tariff_matrix[k], (dict, list))}
+                    desc_zone, _ = _resolve_zone_from_description(invoice_line, section_keys)
+                    effective_zone = desc_zone if desc_zone and desc_zone in tariff_matrix else None
+                    if effective_zone:
+                        zone_key = effective_zone
+                        invoice_line["zone"] = zone_key
+                        invoice_line["_zone_inferred"] = True
+                if effective_zone and effective_zone in tariff_matrix:
+                    section = tariff_matrix[effective_zone]
+                    if isinstance(section, dict):
+                        rates_source = section.get("rates") or section.get("tariffs") or []
+                    else:
+                        rates_source = section
                 else:
-                    rates_source = section
+                    rates_source = tariff_data
             elif isinstance(tariff_matrix, list):
                 rates_source = tariff_matrix
             else:
