@@ -472,19 +472,21 @@ def _infer_service_type(description: str) -> str:
     return "Berth"  # default — desk officer will review
 
 
+_ADJ_RE = re.compile(
+    r"\b(?:discount|rebate|bunker|surcharge|vat|tax|iva|igic"
+    r"|baf|fuel|adjustment|korting|remise"
+    r"|btw|mwst|tva)\b"
+)
+
+
 def _is_adjustment_line(description: str, line: dict) -> bool:
     """Return True for discount, surcharge, VAT, bunker lines."""
     is_adj = line.get("is_adjustment")
     if is_adj is True:
         return True
     if is_adj is False:
-        return False  # explicit False from extraction — trust it; avoids "iva" matching "arrival"
-    # No explicit flag — infer from description keywords
-    d = description.lower()
-    return any(w in d for w in (
-        "discount", "rebate", "bunker", "surcharge", "vat", "tax", "iva", "igic",
-        "baf", "fuel", "adjustment", "korting", "remise"
-    ))
+        return False  # explicit False from extraction — trust it
+    return bool(_ADJ_RE.search(description.lower()))
 
 
 _SOF_MONTH_MAP = {
