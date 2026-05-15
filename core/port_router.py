@@ -340,9 +340,65 @@ _SURCHARGE_ENGINE_DEFAULTS = {
 }
 
 
+def _zone_variants_for_profile(
+    profile: dict,
+    tariff_data: dict,
+    dim_value: float,
+    tug_count: int,
+) -> List[tuple]:
+    """
+    Yield (zone_label, total_rate) pairs for every zone the port's tariff
+    can produce.  Dispatches to the correct handler based on calculation_pattern.
+    """
+    pattern = profile.get("calculation_pattern", "")
+    results: List[tuple] = []
+
+    if pattern == "fixed_plus_variable":
+        for zone, zone_rates in profile.get("rates", {}).items():
+            if not isinstance(zone_rates, dict):
+                continue
+            try:
+                r = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
+                results.append((zone, round(float(r.get("total_rate") or 0.0), 2)))
+            except Exception as e:
+                logger.debug(f"Backward inference: fixed_plus_variable zone '{zone}' failed: {e}")
+
+    elif pattern == "bracket_lookup":
+        zone_rate_columns = profile.get("zone_rate_columns", {})
+        billing_basis = profile.get("billing_basis", "per_tug_per_move")
+        tug_multiplier = tug_count if billing_basis == "per_tug_per_move" else 1
+        # Deduplicate: multiple zone names can map to the same rate column
+        seen_columns: dict = {}
+        for zone_name, rate_col in zone_rate_columns.items():
+            if rate_col in seen_columns:
+                continue
+            seen_columns[rate_col] = zone_name
+            try:
+                rates_data = _get_rates_data(tariff_data, zone_name)
+                base = lookup_bracket_rate(rates_data, dim_value, rate_col)
+                total = round(base * tug_multiplier, 2)
+                results.append((zone_name, total))
+            except Exception as e:
+                logger.debug(f"Backward inference: bracket_lookup zone '{zone_name}' col '{rate_col}' failed: {e}")
+
+    elif pattern == "bracket_lookup_with_formula_above_threshold":
+        tables = tariff_data.get("tariff_tables", [])
+        table_id = "T0"
+        for zone in ("zone_i_interior", "zone_ii_exterior"):
+            try:
+                r = calculate_bracket_with_formula(dim_value, table_id, tables, zone)
+                results.append((zone, round(float(r.get("total_rate") or 0.0), 2)))
+            except Exception as e:
+                logger.debug(f"Backward inference: bracket_with_formula zone '{zone}' failed: {e}")
+
+    return results
+
+
 def _infer_plausible_conditions(
     profile: dict,
+    tariff_data: dict,
     dim_value: float,
+    tug_count: int,
     invoiced_amount: float,
     known_surcharge_types: List[str],
     plausible_tolerance_pct: float = 3.0
@@ -362,12 +418,10 @@ def _infer_plausible_conditions(
         return []
 
     candidates: List[Dict[str, Any]] = []
-    rates = profile.get("rates", {})
     profile_surcharges = profile.get("surcharge_multipliers", {})
     waiting = profile.get("waiting_time", {})
     delay_bonuses = profile.get("provider_delay_bonuses", {})
 
-    # Build full surcharge map: profile overrides defaults; skip known/flagged ones
     all_surcharges = {**_SURCHARGE_ENGINE_DEFAULTS, **profile_surcharges}
     unknown_surcharges = {
         k: v for k, v in all_surcharges.items()
@@ -380,40 +434,27 @@ def _infer_plausible_conditions(
     def _within(variance: float) -> bool:
         return variance <= plausible_tolerance_pct
 
+    # --- Compute zone variants using the correct handler ---
+    zone_rates = _zone_variants_for_profile(profile, tariff_data, dim_value, tug_count)
+
     # --- Level 1: Zone variants ---
-    for zone, zone_rates in rates.items():
-        if not isinstance(zone_rates, dict):
-            continue
-        try:
-            result = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
-            expected = round(float(result.get("total_rate") or 0.0), 2)
-            v = _variance(expected)
-            if _within(v):
-                candidates.append({
-                    "type": "zone",
-                    "description": (
-                        f"Could be correct if zone = '{zone}' applies "
-                        f"(expected EUR {expected:,.2f}, {v:.1f}% variance)"
-                    ),
-                    "expected_amount": expected,
-                    "variance_pct": v,
-                })
-        except Exception as e:
-            logger.debug(f"Backward inference: zone '{zone}' calculation failed: {e}")
+    for zone, expected in zone_rates:
+        v = _variance(expected)
+        if _within(v):
+            candidates.append({
+                "type": "zone",
+                "description": (
+                    f"Could be correct if zone = '{zone}' applies "
+                    f"(expected EUR {expected:,.2f}, {v:.1f}% variance)"
+                ),
+                "expected_amount": expected,
+                "variance_pct": v,
+            })
 
     # Compute base using the first (default/fallback) zone for Levels 2–5
-    default_zone, default_rates = next(iter(rates.items()), (None, None))
-    base_rate = 0.0
-    if default_rates and isinstance(default_rates, dict):
-        try:
-            result = calculate_fixed_plus_variable(dim_value, default_rates, default_zone)
-            base_rate = round(float(result.get("total_rate") or 0.0), 2)
-        except Exception as e:
-            logger.warning(f"Backward inference: default zone '{default_zone}' failed: {e}")
+    base_rate = zone_rates[0][1] if zone_rates else 0.0
 
     if base_rate > 0:
-        ratio = invoiced_amount / base_rate
-
         # --- Level 2: Single surcharge on default zone ---
         for surcharge_name, multiplier in unknown_surcharges.items():
             expected = round(base_rate * multiplier, 2)
@@ -430,15 +471,7 @@ def _infer_plausible_conditions(
                 })
 
         # --- Level 3: Zone + single surcharge combinations ---
-        for zone, zone_rates in rates.items():
-            if not isinstance(zone_rates, dict):
-                continue
-            try:
-                zone_result = calculate_fixed_plus_variable(dim_value, zone_rates, zone)
-                zone_base = round(float(zone_result.get("total_rate") or 0.0), 2)
-            except Exception as e:
-                logger.debug(f"Backward inference: zone '{zone}' calculation failed: {e}")
-                continue
+        for zone, zone_base in zone_rates:
             for surcharge_name, multiplier in unknown_surcharges.items():
                 expected = round(zone_base * multiplier, 2)
                 v = _variance(expected)
@@ -460,7 +493,6 @@ def _infer_plausible_conditions(
             diff = invoiced_amount - base_rate
             if diff > 0:
                 raw_hrs = diff / waiting_rate
-                # Round to nearest 0.5-hr increment
                 rounded_hrs = round(raw_hrs * 2) / 2
                 if rounded_hrs > 0:
                     expected = round(base_rate + rounded_hrs * waiting_rate, 2)
@@ -482,7 +514,7 @@ def _infer_plausible_conditions(
             discount_mult = float(tier.get("multiplier") or 1.0)
             discount_pct = tier.get("discount_pct", 0)
             if discount_mult >= 1.0:
-                continue  # Only handle discounts (< 1.0)
+                continue
             expected = round(base_rate * discount_mult, 2)
             v = _variance(expected)
             if _within(v):
@@ -497,7 +529,6 @@ def _infer_plausible_conditions(
                 })
 
     # --- Noise suppression ---
-    # If any candidate is an exact match (0.0% variance), suppress all near-matches
     if any(c["variance_pct"] == 0.0 for c in candidates):
         candidates = [c for c in candidates if c["variance_pct"] == 0.0]
 
@@ -1236,7 +1267,9 @@ def route(
             else:
                 candidate_explanations = _infer_plausible_conditions(
                     profile=profile,
+                    tariff_data=tariff_data,
                     dim_value=dim_value_for_line,
+                    tug_count=tug_count,
                     invoiced_amount=invoiced_amount,
                     known_surcharge_types=known_surcharge_types
                 )
