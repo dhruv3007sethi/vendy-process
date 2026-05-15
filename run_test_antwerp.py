@@ -1,9 +1,8 @@
-import sys, json, pathlib, logging
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
+import json, pathlib, logging
 
 logging.basicConfig(level=logging.WARNING)
 
-from port_router import route
+from core.port_router import route
 
 sof      = json.loads(pathlib.Path("test_sof_antwerp.json").read_text())
 invoice  = json.loads(pathlib.Path("test_invoice_antwerp.json").read_text())

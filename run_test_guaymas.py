@@ -9,13 +9,11 @@ Expected: AUTO_APPROVED
 Adjustment lines: 3% contract discounts (USD -229.21 berth, USD -152.80 unberth) — not validated
 """
 
-import sys
 import json
 import pathlib
 import pprint
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-from port_router import route
+from core.port_router import route
 
 BASE = pathlib.Path(__file__).parent
 

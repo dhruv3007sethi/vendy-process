@@ -6,14 +6,8 @@ Uses HAFNIA SOYA invoice (0260040937) against SOF and tariff data.
 """
 
 import json
-import sys
-import os
 
-# Ensure the core directory is on the path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core"))
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "core", "handlers"))
-
-from port_router import route
+from core.port_router import route
 
 # Load data files
 with open("SOF.json") as f:

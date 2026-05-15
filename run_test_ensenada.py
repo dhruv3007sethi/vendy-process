@@ -8,13 +8,11 @@ Duration: 45 min (< 1hr standard — no overtime)
 Expected: AUTO_APPROVED
 """
 
-import sys
 import json
 import pathlib
 import pprint
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-from port_router import route
+from core.port_router import route
 
 BASE = pathlib.Path(__file__).parent
 

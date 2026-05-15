@@ -1,13 +1,9 @@
-import sys
 import json
 import pathlib
 from datetime import datetime, timezone
 
-# Make core/ importable
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-
 import streamlit as st
-from invoice_normaliser import (
+from core.invoice_normaliser import (
     normalise_invoice,
     normalise_invoice_fields,
     normalise_sof,
@@ -644,7 +640,7 @@ with tab_verify:
     # ── Engine call ───────────────────────────
     if run_clicked and can_run:
         try:
-            from port_router import route  # imported late to avoid top-level failure
+            from core.port_router import route
 
             invoice_dict = json.load(invoice_file) if invoice_file else json.loads(invoice_text)
             sof_dict     = json.load(sof_file)     if sof_file     else json.loads(sof_text)

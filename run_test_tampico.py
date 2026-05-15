@@ -22,13 +22,11 @@ Expected: MISMATCH (~-10.6% both lines)
 Cause: April 2025 tariff on file; invoice used pre-April 2025 (February 2025) rates
 """
 
-import sys
 import json
 import pathlib
 import pprint
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-from port_router import route
+from core.port_router import route
 
 BASE = pathlib.Path(__file__).parent
 

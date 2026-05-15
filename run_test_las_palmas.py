@@ -19,13 +19,11 @@ Unberth (26.02.2026): 2 tugs, 24 min <= 60 min std -> no OT
 Expected: AUTO_APPROVED (both lines within 1% tolerance via T+1 tariff)
 """
 
-import sys
 import json
 import pathlib
 import pprint
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-from port_router import route
+from core.port_router import route
 
 BASE = pathlib.Path(__file__).parent
 

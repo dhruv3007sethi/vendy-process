@@ -1,7 +1,6 @@
-import sys, json, pathlib, pprint
+import json, pathlib, pprint
 
-sys.path.insert(0, str(pathlib.Path(__file__).parent / "core"))
-from port_router import route
+from core.port_router import route
 
 BASE = pathlib.Path(__file__).parent
 
