@@ -298,13 +298,16 @@ def _build_surcharge_list(invoice_line: dict, profile: dict, port: str) -> List[
         surcharges.append({"type": "holiday_weekend", "multiplier": mult})
 
     if invoice_line.get("fog") or invoice_line.get("limited_visibility"):
-        surcharges.append({"type": "fog_visibility", "multiplier": 1.5})
+        mult = multipliers.get("fog_visibility", 1.5)
+        surcharges.append({"type": "fog_visibility", "multiplier": mult})
 
     if invoice_line.get("lng_vessel"):
-        surcharges.append({"type": "lng_vessel", "multiplier": 2.5})
+        mult = multipliers.get("lng_vessel", 2.5)
+        surcharges.append({"type": "lng_vessel", "multiplier": mult})
 
     if invoice_line.get("deep_draft"):
-        surcharges.append({"type": "deep_draft", "multiplier": 1.5})
+        mult = multipliers.get("deep_draft", 1.5)
+        surcharges.append({"type": "deep_draft", "multiplier": mult})
 
     if invoice_line.get("shifting"):
         mult = multipliers.get("shifting", 1.3)
@@ -315,10 +318,12 @@ def _build_surcharge_list(invoice_line: dict, profile: dict, port: str) -> List[
         })
 
     if invoice_line.get("dry_dock"):
-        surcharges.append({"type": "dry_dock", "multiplier": 1.5})
+        mult = multipliers.get("dry_dock", 1.5)
+        surcharges.append({"type": "dry_dock", "multiplier": mult})
 
     if invoice_line.get("late_order"):
-        surcharges.append({"type": "late_order", "multiplier": 2.0})
+        mult = multipliers.get("late_order", 2.0)
+        surcharges.append({"type": "late_order", "multiplier": mult})
 
     return surcharges
 
