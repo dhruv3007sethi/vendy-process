@@ -8,13 +8,11 @@ This is step 2 of the PDF ingestion pipeline:
 
   pdf_extractor.extract_text()        →  raw text / markdown
   invoice_extractor.extract_invoice() →  structured dict (descriptions still raw)
-  invoice_parser.parse_invoice_line() →  service_type + tug_count + zone_hint per line
   route()                             →  verdict
 
 IMPORTANT: This module does NOT map service_type.
 Raw descriptions (e.g. "Atraque buque STI HAMMERSMITH") are left exactly as
-found on the invoice. invoice_parser.py + SemanticMatcher handle classification
-in the next step.
+found on the invoice.
 
 Output schema
 -------------
