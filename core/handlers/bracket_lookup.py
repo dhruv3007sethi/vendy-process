@@ -16,6 +16,8 @@ import math
 import logging
 from typing import Union, List
 
+from core.bracket_parser import match_bracket_row
+
 logger = logging.getLogger(__name__)
 
 
@@ -96,84 +98,22 @@ def _parse_dict_object_brackets(brackets: List[dict], dimension_value: float,
 
 def _parse_text_range_brackets(brackets: List[dict], dimension_value: float,
                                 rate_column: str = None) -> float:
-    """
-    Parses bracket lists like:
-      [{"grt_bracket": "Under 2,500", "with_bow_thruster_rate": 20833}, ...]
-    Text patterns handled:
-      "Under X"      -> 0 to X (Exclusive)
-      "X to Y"       -> X to Y (Inclusive)
-      "Over X"       -> X to infinity (Exclusive)
-      "X and above"  -> X to infinity (Inclusive)
-      
-    rate_column: which rate field to read (e.g. "with_bow_thruster_rate").
-                 If None, tries common field names.
-    """
-    for bracket in brackets:
-        text = str(bracket.get('dimension_range') or '')
-        text_clean = text.lower().replace(',', '').strip()
-        matched = False
+    bracket = match_bracket_row(brackets, dimension_value)
+    if bracket is None:
+        raise ValueError(
+            f"No bracket match found for dimension value {dimension_value}."
+        )
 
-        # Pattern: "Under X" (e.g., "Under 5,000")
-        if text_clean.startswith('under '):
-            upper = float(re.sub(r'[^\d.]', '', text_clean.replace('under', '')))
-            matched = dimension_value <= upper
+    if rate_column and rate_column in bracket:
+        return float(bracket[rate_column])
 
-        # Pattern: "Up to X" (inclusive, e.g., "Up to 8,000 GT")
-        elif text_clean.startswith('up to '):
-            upper = float(re.sub(r'[^\d.]', '', text_clean.replace('up to', '')))
-            matched = dimension_value <= upper
-
-        # Pattern: "X to Y" (e.g., "5,000 to 10,000")
-        elif ' to ' in text_clean:
-            parts = text_clean.split(' to ')
-            try:
-                lower = float(re.sub(r'[^\d.]', '', parts[0]))
-                upper = float(re.sub(r'[^\d.]', '', parts[1]))
-                matched = lower <= dimension_value <= upper
-            except ValueError:
-                pass
-
-        # Pattern: "X - Y" (dash format, e.g., "8,001 - 15,000 GT")
-        elif ' - ' in text_clean:
-            parts = text_clean.split(' - ')
-            try:
-                lower = float(re.sub(r'[^\d.]', '', parts[0]))
-                upper = float(re.sub(r'[^\d.]', '', parts[1]))
-                matched = lower <= dimension_value <= upper
-            except ValueError:
-                pass
-
-        # Pattern: "Over X" (Strictly greater than, e.g., "Over 50,000")
-        elif text_clean.startswith('over '):
-            try:
-                lower = float(re.sub(r'[^\d.]', '', text_clean.replace('over', '')))
-                matched = dimension_value > lower
-            except ValueError:
-                pass
-
-        # Pattern: "X and above" (Greater than or equal, e.g., "50,000 GT and above")
-        elif 'and above' in text_clean:
-            try:
-                lower = float(re.sub(r'[^\d.]', '', text_clean.replace('and above', '')))
-                matched = dimension_value >= lower
-            except ValueError:
-                pass
-
-        if matched:
-            if rate_column and rate_column in bracket:
-                return float(bracket[rate_column])
-
-            if 'base_rate' in bracket:
-                return float(bracket['base_rate'])
-            
-            raise ValueError(
-                f"Bracket matched for {dimension_value} ('{text}') but no rate field found. "
-                f"Available fields: {list(bracket.keys())}. "
-                f"Specify rate_column explicitly."
-            )
+    if 'base_rate' in bracket:
+        return float(bracket['base_rate'])
 
     raise ValueError(
-        f"No bracket match found for dimension value {dimension_value}."
+        f"Bracket matched for {dimension_value} but no rate field found. "
+        f"Available fields: {list(bracket.keys())}. "
+        f"Specify rate_column explicitly."
     )
 
 

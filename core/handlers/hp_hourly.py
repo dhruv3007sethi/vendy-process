@@ -21,6 +21,8 @@ import re
 import logging
 from typing import List, Dict, Union, Optional
 
+from core.bracket_parser import match_bracket_row
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,56 +31,18 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _get_rate_per_hp_hour(tariff_matrix: List[Dict], grt_value: float) -> float:
-    """
-    Finds the rate_per_hp_hour_usd from the GRT bracket table.
-    Handles text bracket formats: "Up to 5,000", "5,001 to 10,000",
-    "25,001 and above", "Over 25,000".
-
-    Returns:
-        float: rate per HP per hour
-    """
-    for row in tariff_matrix:
-        bracket_text = str(
-            row.get('dimension_range') or
-            row.get('grt_bracket') or row.get('bracket') or row.get('trb_range') or ''
-        ).lower().replace(',', '').strip()
-
-        rate = row.get('rate_per_hp_hour_usd') or row.get('rate_per_hp_hour')
-        if rate is None:
-            continue
-
-        # 1. "Up to X" (Inclusive)
-        if bracket_text.startswith('up to ') or bracket_text.startswith('under '):
-            limit = float(re.sub(r'[^\d.]', '', bracket_text))
-            if grt_value <= limit:
-                return float(rate)
-
-        # 2. "X and above" (Inclusive)
-        elif 'and above' in bracket_text or bracket_text.endswith('+'):
-            limit = float(re.sub(r'[^\d.]', '', bracket_text.replace('and above', '').replace('+', '').strip()))
-            if grt_value >= limit:
-                return float(rate)
-
-        # 3. "Over X" (Exclusive)
-        elif bracket_text.startswith('over ') or bracket_text.startswith('above '):
-            limit = float(re.sub(r'[^\d.]', '', bracket_text))
-            if grt_value > limit:
-                return float(rate)
-
-        # 4. "X to Y" (Inclusive)
-        elif ' to ' in bracket_text:
-            parts = bracket_text.split(' to ')
-            try:
-                lower = float(re.sub(r'[^\d.]', '', parts[0]))
-                upper = float(re.sub(r'[^\d.]', '', parts[1]))
-                if lower <= grt_value <= upper:
-                    return float(rate)
-            except (ValueError, IndexError):
-                continue
-
-    raise ValueError(
-        f"No GRT bracket match found for GRT={grt_value} in hp_hourly tariff matrix."
-    )
+    row = match_bracket_row(tariff_matrix, grt_value)
+    if row is None:
+        raise ValueError(
+            f"No GRT bracket match found for GRT={grt_value} in hp_hourly tariff matrix."
+        )
+    rate = row.get('rate_per_hp_hour_usd') or row.get('rate_per_hp_hour')
+    if rate is None:
+        raise ValueError(
+            f"Bracket matched for GRT={grt_value} but no rate field found. "
+            f"Available keys: {list(row.keys())}"
+        )
+    return float(rate)
 
 
 # ---------------------------------------------------------------------------

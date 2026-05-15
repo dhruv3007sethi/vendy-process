@@ -21,6 +21,8 @@ import re
 import logging
 from typing import Optional, Dict, List, Union
 
+from core.bracket_parser import match_bracket_row
+
 logger = logging.getLogger(__name__)
 
 
@@ -29,56 +31,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _match_trb_bracket(tariff_matrix: List[Dict], trb_value: float) -> Optional[Dict]:
-    """
-    Finds the matching row from a TRB/GRT range matrix.
-    Handles: "Under 2,500", "2,501 to 5,000", "Over 10,000", "10,000 and above"
-    Returns the full row dict or None.
-    """
-    for row in tariff_matrix:
-        text = str(
-            row.get('dimension_range') or
-            row.get('trb_range') or row.get('grt_range') or row.get('bracket') or ''
-        ).lower().replace(',', '').strip()
-
-        if not text:
-            continue
-
-        # 1. "Under X" (Exclusive)
-        if text.startswith('under '):
-            upper = float(re.sub(r'[^\d.]', '', text))
-            if trb_value < upper:
-                return row
-        
-        # 2. "Up to X" (Inclusive)
-        elif text.startswith('up to ') or text.startswith('until '):
-            upper = float(re.sub(r'[^\d.]', '', text.replace('up to', '').replace('until', '')))
-            if trb_value <= upper:
-                return row
-
-        # 3. "X and above" (Inclusive)
-        elif 'and above' in text or text.endswith('+'):
-            lower = float(re.sub(r'[^\d.]', '', text.replace('and above', '').replace('+', '').strip()))
-            if trb_value >= lower:
-                return row
-        
-        # 4. "Over X" (Exclusive)
-        elif text.startswith('over ') or text.startswith('above '):
-            lower = float(re.sub(r'[^\d.]', '', text))
-            if trb_value > lower:
-                return row
-
-        # 5. "X to Y" (Inclusive)
-        elif ' to ' in text:
-            parts = text.split(' to ')
-            try:
-                lower = float(re.sub(r'[^\d.]', '', parts[0]))
-                upper = float(re.sub(r'[^\d.]', '', parts[1]))
-                if lower <= trb_value <= upper:
-                    return row
-            except (ValueError, IndexError):
-                continue
-
-    return None
+    return match_bracket_row(tariff_matrix, trb_value)
 
 
 # ---------------------------------------------------------------------------

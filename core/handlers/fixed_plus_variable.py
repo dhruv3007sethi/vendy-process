@@ -18,6 +18,8 @@ import re
 import logging
 from typing import Optional, List, Dict, Union
 
+from core.bracket_parser import parse_text_range, dimension_in_range
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,61 +28,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _parse_gt_range_text(gt_range_text: str) -> tuple[Optional[float], Optional[float], bool]:
-    """
-    Converts GT range text to (lower, upper, is_exclusive_lower) numeric bounds.
-    
-    Handles:
-      "0 to 1,000"        -> (0, 1000, False)
-      "1,001 to 5,000"    -> (1001, 5000, False)
-      "Over 100,000"      -> (100000, inf, True)  # GT must be > 100,000
-      "100,000 and above"-> (100000, inf, False) # GT must be >= 100,000
-      "75,001 to 100,000" -> (75001, 100000, False)
-      
-    Returns:
-        (lower, upper, is_exclusive_lower): 
-            If is_exclusive_lower is True, the match is `gt > lower`.
-            Otherwise, match is `lower <= gt <= upper`.
-    """
-    text = str(gt_range_text).lower().replace(',', '').strip()
-
-    # Handle "X and above" (Inclusive)
-    if 'and above' in text or 'and over' in text:
-        lower = float(re.sub(r'[^\d.]', '', text.split('and')[0]))
-        return (lower, float('inf'), False)
-
-    # Handle "Over X" or "Above X" (Exclusive)
-    if text.startswith('over ') or text.startswith('above '):
-        lower = float(re.sub(r'[^\d.]', '', text))
-        return (lower, float('inf'), True)
-
-    # Handle "X to Y"
-    if ' to ' in text:
-        parts = text.split(' to ')
-        if len(parts) == 2:
-            lower = float(re.sub(r'[^\d.]', '', parts[0]))
-            upper = float(re.sub(r'[^\d.]', '', parts[1]))
-            return (lower, upper, False)
-
-    # Handle "X - Y" (Valencia/Spanish format, e.g. "22,001 - 30,000")
-    if ' - ' in text:
-        parts = text.split(' - ')
-        if len(parts) == 2:
-            lower = float(re.sub(r'[^\d.]', '', parts[0]))
-            upper = float(re.sub(r'[^\d.]', '', parts[1]))
-            return (lower, upper, False)
-
-    # Handle "X onwards" / "X onward" (e.g. "100,000 onwards") → same as "and above"
-    if text.endswith('onwards') or text.endswith('onward'):
-        lower = float(re.sub(r'[^\d.]', '', text))
-        return (lower, float('inf'), False)
-
-    # Handle "Up to X" (Inclusive)
-    if text.startswith('up to ') or text.startswith('until '):
-        upper = float(re.sub(r'[^\d.]', '', text.replace('up to', '').replace('until', '')))
-        return (0.0, upper, False)
-
-    # Fallback: If we can't parse, return None to signal failure
-    return (None, None, False)
+    return parse_text_range(gt_range_text)
 
 
 def _find_bracket_row(tariff_matrix: List[Dict], gt_value: float) -> Optional[Dict]:
@@ -104,26 +52,17 @@ def _find_bracket_row(tariff_matrix: List[Dict], gt_value: float) -> Optional[Di
         gt_range_text = row.get('dimension_range') or row.get('gt_range', '')
         if not gt_range_text:
             continue
-        
+
         try:
             lower, upper, is_exclusive = _parse_gt_range_text(gt_range_text)
-            
             if lower is None:
                 continue
-
-            # Determine match logic
-            if is_exclusive:
-                # e.g., "Over 100,000" -> GT must be > 100,000
-                if gt_value > lower:
-                    return row
-            else:
-                # e.g., "0 to 100,000" -> GT must be >= lower and <= upper
-                if lower <= gt_value <= upper:
-                    return row
+            if dimension_in_range(gt_value, lower, upper, is_exclusive):
+                return row
         except (ValueError, TypeError):
             logger.warning(f"Skipping unparsable GT range: {gt_range_text}")
             continue
-            
+
     return None
 
 

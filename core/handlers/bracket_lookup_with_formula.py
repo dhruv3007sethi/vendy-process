@@ -28,6 +28,8 @@ import re
 import logging
 from typing import Optional, Dict, List, Union
 
+from core.bracket_parser import match_bracket_row
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,37 +38,11 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _match_gt_bracket(fixed_rates: List[Dict], gt_value: float) -> Optional[float]:
-    """
-    Looks up the fixed rate from the bracket table for GT <= threshold.
-    Handles: "Up to 2,000", "2,001 to 4,500", "7,001 to 10,000"
-
-    Returns:
-        float rate if matched, None if no bracket matches.
-    """
-    for row in fixed_rates:
-        text = str(row.get('gt_range', '')).lower().replace(',', '').strip()
-        rate = row.get('rate_per_service')
-        if rate is None:
-            continue
-
-        # 1. "Up to X" (Inclusive)
-        if text.startswith('up to ') or text.startswith('under '):
-            limit = float(re.sub(r'[^\d.]', '', text))
-            if gt_value <= limit:
-                return float(rate)
-
-        # 2. "X to Y" (Inclusive)
-        elif ' to ' in text:
-            parts = text.split(' to ')
-            try:
-                lower = float(re.sub(r'[^\d.]', '', parts[0]))
-                upper = float(re.sub(r'[^\d.]', '', parts[1]))
-                if lower <= gt_value <= upper:
-                    return float(rate)
-            except (ValueError, IndexError):
-                continue
-
-    return None
+    row = match_bracket_row(fixed_rates, gt_value, range_key='gt_range')
+    if row is None:
+        return None
+    rate = row.get('rate_per_service')
+    return float(rate) if rate is not None else None
 
 
 # ---------------------------------------------------------------------------
