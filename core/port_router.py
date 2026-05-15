@@ -549,34 +549,71 @@ def _resolve_zone_key(zone_input: Optional[str], zone_rate_columns: dict) -> tup
     Resolves a free-text zone string from an invoice line to a canonical zone key
     used in zone_rate_columns.
 
-    Strategy:
-      1. Exact match — return as-is, zone_inferred=False
-      2. Substring match (case-insensitive) — return first matching key, zone_inferred=True
-      3. Token-level substring — split input, check each token against keys
-      4. No match — return None, zone_inferred=False
+    Strategy (ranked — first decisive tier wins):
+      1. Exact match (case-sensitive) — zone_inferred=False
+      2. Exact match (case-insensitive) — zone_inferred=False
+      3. Substring match — all candidates ranked by overlap ratio, zone_inferred=True
+      4. Token-level substring — ranked by (token_count, total_chars), zone_inferred=True
+      5. No match — return None, zone_inferred=False
 
     Returns (resolved_key, zone_inferred).
     """
     if not zone_input or not zone_rate_columns:
         return zone_input, False
-    # 1. Exact match
+    # 1. Exact match (case-sensitive)
     if zone_input in zone_rate_columns:
         return zone_input, False
-    # 2. Substring match: check if any key appears inside zone_input, or vice versa
+
     zone_lower = zone_input.lower()
+
+    # 2. Exact match (case-insensitive)
     for key in zone_rate_columns:
-        if key.lower() in zone_lower or zone_lower in key.lower():
-            logger.info(f"Zone '{zone_input}' fuzzy-matched to '{key}' (zone_inferred=True)")
-            return key, True
-    # 3. Token-level substring: split input on non-alphanumeric, check each token
-    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 3]
+        if key.lower() == zone_lower:
+            return key, False
+
+    # 3. Substring match: collect all, rank by overlap ratio (closest to exact wins)
+    matches = []
     for key in zone_rate_columns:
         key_lower = key.lower()
-        for token in tokens:
-            if token in key_lower:
-                logger.info(f"Zone '{zone_input}' token '{token}' matched key '{key}' (zone_inferred=True)")
-                return key, True
-    # 4. No match
+        if key_lower in zone_lower or zone_lower in key_lower:
+            shorter = min(len(key_lower), len(zone_lower))
+            longer = max(len(key_lower), len(zone_lower))
+            ratio = shorter / longer if longer else 0.0
+            matches.append((key, ratio))
+    if matches:
+        matches.sort(key=lambda m: m[1], reverse=True)
+        best_key = matches[0][0]
+        if len(matches) > 1:
+            logger.warning(
+                "Zone '%s' matched multiple zone keys: %s; using best match '%s'",
+                zone_input, [m[0] for m in matches], best_key,
+            )
+        else:
+            logger.info("Zone '%s' fuzzy-matched to '%s' (zone_inferred=True)", zone_input, best_key)
+        return best_key, True
+
+    # 4. Token-level substring: rank by (matching_token_count, total_matched_chars)
+    tokens = [t for t in re.split(r'[^a-z0-9]+', zone_lower) if len(t) >= 3]
+    if tokens:
+        tok_matches = []
+        for key in zone_rate_columns:
+            key_lower = key.lower()
+            matched = [t for t in tokens if t in key_lower]
+            if matched:
+                tok_matches.append((key, len(matched), sum(len(t) for t in matched)))
+        if tok_matches:
+            tok_matches.sort(key=lambda m: (m[1], m[2]), reverse=True)
+            best_key = tok_matches[0][0]
+            if len(tok_matches) > 1:
+                logger.warning(
+                    "Zone '%s' token-matched multiple zone keys: %s; using best match '%s'",
+                    zone_input, [m[0] for m in tok_matches], best_key,
+                )
+            else:
+                logger.info("Zone '%s' token-matched to '%s' (zone_inferred=True)", zone_input, best_key)
+            return best_key, True
+
+    # 5. No match
     return None, False
 
 
@@ -593,6 +630,9 @@ def _resolve_zone_from_tariff_areas(
       - Rotterdam: operating_areas_and_terminals → {area: {terminals: [...], ...}}
       - Antwerp:   operating_areas              → {area: {description: "...", ...}}
 
+    All candidates are collected and ranked by (matching_token_count, total_matched_chars).
+    A warning is logged when multiple areas match.
+
     Returns (canonical_zone_key, zone_inferred=True) or (None, False).
     Only returns a key that exists in zone_rate_columns.
     """
@@ -604,6 +644,7 @@ def _resolve_zone_from_tariff_areas(
     if not tokens:
         return None, False
 
+    matches = []
     for field in ("operating_areas_and_terminals", "operating_areas"):
         areas = tariff_data.get(field, {})
         if not isinstance(areas, dict):
@@ -613,19 +654,29 @@ def _resolve_zone_from_tariff_areas(
                 continue
             if not isinstance(area_data, dict):
                 continue
-            # Build corpus: terminal names + description text
             corpus_parts = [t.lower() for t in area_data.get("terminals", [])]
             desc = area_data.get("description", "")
             if desc:
                 corpus_parts.append(desc.lower())
             corpus = " ".join(corpus_parts)
-            for token in tokens:
-                if token in corpus:
-                    logger.info(
-                        f"Zone '{zone_input}' token '{token}' matched tariff area '{area_key}' "
-                        f"via {field} lookup (zone_inferred=True)"
-                    )
-                    return area_key, True
+            matched = [t for t in tokens if t in corpus]
+            if matched:
+                matches.append((area_key, field, len(matched), sum(len(t) for t in matched)))
+
+    if matches:
+        matches.sort(key=lambda m: (m[2], m[3]), reverse=True)
+        best_key, best_field = matches[0][0], matches[0][1]
+        if len(matches) > 1:
+            logger.warning(
+                "Zone '%s' matched multiple tariff areas: %s; using best match '%s'",
+                zone_input, [m[0] for m in matches], best_key,
+            )
+        else:
+            logger.info(
+                "Zone '%s' token-matched tariff area '%s' via %s lookup (zone_inferred=True)",
+                zone_input, best_key, best_field,
+            )
+        return best_key, True
 
     return None, False
 
