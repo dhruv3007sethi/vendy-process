@@ -61,15 +61,17 @@ _ADJUSTMENT_KEYWORDS: frozenset = frozenset([
 ])
 
 
-def _classify_as_adjustment(service_type: str) -> str:
+def _classify_as_adjustment(service_type: str, description: str = "") -> str:
     """
-    Returns the matched keyword if service_type is a non-tariff adjustment,
+    Returns the matched keyword if the line is a non-tariff adjustment,
     or an empty string if it should be validated against the tariff.
+    Checks both service_type and description — invoices often carry the
+    keyword only in the description (e.g. service_type='Unberth', description='HOLIDAY').
     """
-    st_lower = service_type.lower()
-    for kw in _ADJUSTMENT_KEYWORDS:
-        if kw in st_lower:
-            return kw
+    for text in (service_type.lower(), description.lower()):
+        for kw in _ADJUSTMENT_KEYWORDS:
+            if kw in text:
+                return kw
     return ""
 
 
@@ -1217,7 +1219,10 @@ def route(
 
         # Auto-detect adjustment/surcharge lines that are not tariff-validated services.
         # These bypass the tariff calculator and are accepted on face value.
-        _adj_kw = _classify_as_adjustment(service_type)
+        _adj_kw = _classify_as_adjustment(
+            service_type,
+            invoice_line.get("description") or ""
+        )
         if _adj_kw:
             logger.info(
                 f"Line {idx} ({service_type}): auto-classified as ADJUSTMENT "
