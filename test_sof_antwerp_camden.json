@@ -1,0 +1,47 @@
+{
+  "vessel": "STI CAMDEN",
+  "voyage": "SCAM departure Antwerp",
+  "port": "Antwerp, BE",
+  "events": [
+    {
+      "event": "Pilot On Board",
+      "date": "2026-05-10",
+      "time": "10:30"
+    },
+    {
+      "event": "Tugs Made Fast",
+      "date": "2026-05-10",
+      "time": "11:00",
+      "tug_count": 1,
+      "note": "Departure from Ligplaats 306B, 6e HAVENDOK via Deurganckdok"
+    },
+    {
+      "type": "Unberth",
+      "service_type": "Unberth",
+      "date": "2026-05-10",
+      "time": "11:00",
+      "tugs_alongside_time": "11:00",
+      "all_fast_time": "11:00",
+      "tug_count": 1,
+      "berth_location": "Ligplaats 306B, 6e HAVENDOK",
+      "zone": "DEURGANCKDOK",
+      "duration_mins": 60
+    },
+    {
+      "event": "Cast Off / All Lines Away",
+      "date": "2026-05-10",
+      "time": "11:05"
+    },
+    {
+      "event": "Tugs Away",
+      "date": "2026-05-10",
+      "time": "12:00",
+      "note": "Released after clearing Deurganckdok"
+    },
+    {
+      "event": "Pilot Off",
+      "date": "2026-05-10",
+      "time": "12:30"
+    }
+  ]
+}

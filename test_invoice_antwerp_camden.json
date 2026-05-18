@@ -1,0 +1,63 @@
+{
+  "invoice_reference": "0814002079",
+  "purchase_order": "PO-SCM2601327",
+  "vendor": "Boluda Towage Europe (Harbour Towage Antwerp)",
+  "port": "Antwerp",
+  "vessel_name": "STI CAMDEN",
+  "vessel_loa": "184,00",
+  "vessel_gt": "24.230",
+  "vessel_imo": "9688386",
+  "invoice_date": "2026-05-13",
+  "service_date": "2026-05-10",
+  "currency": "EUR",
+  "notes": [
+    "10-May-2026 is a Sunday — Holiday surcharge 50% applies per tariff",
+    "Discount 43% applied separately to base and holiday amounts — contractual, pending contract receipt",
+    "Bunker adjustment 23% applied to base tug charge (1,820 x 23% = 418.60) — variable, accepted on face value",
+    "Departure from Ligplaats 306B, 6e HAVENDOK (Antwerpen) to Sea via ZANDVLIET-DEURGANCKDOK"
+  ],
+  "line_items": [
+    {
+      "service_type": "Unberth",
+      "description": "Departure from Ligplaats 306B, 6e HAVENDOK (Antwerpen) to Sea — ZANDVLIET-DEURGANCKDOK",
+      "date": "2026-05-10",
+      "loa": "184,00",
+      "zone": "DEURGANCKDOK",
+      "tug_count": 1,
+      "amount": 1820.00
+    },
+    {
+      "service_type": "Discount",
+      "description": "Discount 43% on base tug charge",
+      "date": "2026-05-10",
+      "amount": -782.60,
+      "is_adjustment": true,
+      "note": "Contractual discount on base: 1,820.00 x 43% = 782.60"
+    },
+    {
+      "service_type": "Holiday Surcharge",
+      "description": "HOLIDAY 50% (Sunday 10-May-2026)",
+      "date": "2026-05-10",
+      "amount": 910.00,
+      "is_adjustment": true,
+      "note": "Tariff-specified: 50% of base tug charge for Sunday/public holiday work. 1,820.00 x 50% = 910.00"
+    },
+    {
+      "service_type": "Discount",
+      "description": "Discount 43% on holiday surcharge",
+      "date": "2026-05-10",
+      "amount": -391.30,
+      "is_adjustment": true,
+      "note": "Contractual discount on holiday surcharge: 910.00 x 43% = 391.30"
+    },
+    {
+      "service_type": "Bunker Surcharge",
+      "description": "BUNKER ADJ. FACTOR 23%",
+      "date": "2026-05-10",
+      "amount": 418.60,
+      "is_adjustment": true,
+      "note": "Variable bunker surcharge on base tug charge: 1,820.00 x 23% = 418.60. Accepted on face value."
+    }
+  ],
+  "total_amount": 1974.70
+}

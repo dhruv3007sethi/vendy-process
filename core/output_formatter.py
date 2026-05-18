@@ -39,7 +39,7 @@ class LineItemResult:
     currency: str
     variance: float                 # invoiced - expected
     variance_pct: float             # (variance / expected) * 100
-    verdict: str                    # "MATCH" | "MISMATCH" | "UNSUPPORTED" | "REVIEW"
+    verdict: str                    # "MATCH" | "MISMATCH" | "UNSUPPORTED" | "REVIEW" | "ADJUSTMENT"
     confidence_score: float         # 0.0 to 1.0
     confidence_label: str           # "HIGH" | "MEDIUM" | "LOW"
     handler_used: str               # which calculation handler produced this
@@ -163,11 +163,15 @@ def _determine_overall_verdict(line_items: List[LineItemResult]) -> str:
     AUTO_APPROVED  : all lines MATCH, no human review flags
     REVIEW_REQUIRED: at least one REVIEW or UNSUPPORTED line
     MISMATCH       : at least one MISMATCH line
-    """
-    if not line_items:
-        return "REVIEW_REQUIRED" # Default safety if empty
 
-    verdicts = [li.verdict for li in line_items]
+    ADJUSTMENT lines are excluded — they are accepted on face value and
+    do not represent tariff-validated charges.
+    """
+    tariff_lines = [li for li in line_items if li.verdict != "ADJUSTMENT"]
+    if not tariff_lines:
+        return "REVIEW_REQUIRED"
+
+    verdicts = [li.verdict for li in tariff_lines]
 
     if "MISMATCH" in verdicts:
         return "MISMATCH"
@@ -318,19 +322,20 @@ def build_result(
     Assembles a FormattedResult from a list of LineItemResults.
     Calculates totals, overall verdict, and overall confidence.
     """
-    # Calculate Financial Totals
-    total_expected = round(sum(li.expected_amount for li in line_items), 2)
-    total_invoiced = round(sum(li.invoiced_amount for li in line_items), 2)
+    # Calculate Financial Totals — exclude ADJUSTMENT lines (non-tariff charges accepted on face value)
+    tariff_lines = [li for li in line_items if li.verdict != "ADJUSTMENT"]
+    total_expected = round(sum(li.expected_amount for li in tariff_lines), 2)
+    total_invoiced = round(sum(li.invoiced_amount for li in tariff_lines), 2)
     total_variance = round(total_invoiced - total_expected, 2)
 
     # Determine Overall Verdict
     overall_verdict = _determine_overall_verdict(line_items)
     human_review_required = overall_verdict != "AUTO_APPROVED"
 
-    # Calculate Overall Confidence (Average)
-    if line_items:
+    # Calculate Overall Confidence (Average) — exclude ADJUSTMENT lines
+    if tariff_lines:
         overall_confidence = round(
-            sum(li.confidence_score for li in line_items) / len(line_items), 2
+            sum(li.confidence_score for li in tariff_lines) / len(tariff_lines), 2
         )
     else:
         overall_confidence = 0.0

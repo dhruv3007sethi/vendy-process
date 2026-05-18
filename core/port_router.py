@@ -31,13 +31,46 @@ from .handlers.per_service_tug_count import calculate_per_service_tug_count
 from .handlers.bracket_lookup_with_formula import calculate_bracket_with_formula
 from .surcharge_engine import apply_surcharges
 from .overtime_calculator import calculate_overtime
-from .output_formatter import build_line_item, build_result, to_dict
+from .output_formatter import build_line_item, build_result, to_dict, LineItemResult
 logger = logging.getLogger(__name__)
 
 
 class ZoneUnresolvableError(ValueError):
     """Raised when a port has multiple rate columns but the invoice zone string
     cannot be mapped to any known tariff area."""
+
+
+# ---------------------------------------------------------------------------
+# ADJUSTMENT LINE AUTO-DETECTION
+# ---------------------------------------------------------------------------
+
+# Keywords whose presence in service_type indicates a non-tariff adjustment
+# (holiday/weekend surcharges, contractual discounts, bunker/fuel adjustments).
+# Lines matching these are accepted on face value and assigned verdict ADJUSTMENT
+# rather than being run through the tariff calculator.
+_ADJUSTMENT_KEYWORDS: frozenset = frozenset([
+    "holiday",
+    "weekend",
+    "public holiday",
+    "discount",
+    "rebate",
+    "bunker",
+    "fuel surcharge",
+    "fuel adj",
+    "bunker adj",
+])
+
+
+def _classify_as_adjustment(service_type: str) -> str:
+    """
+    Returns the matched keyword if service_type is a non-tariff adjustment,
+    or an empty string if it should be validated against the tariff.
+    """
+    st_lower = service_type.lower()
+    for kw in _ADJUSTMENT_KEYWORDS:
+        if kw in st_lower:
+            return kw
+    return ""
 
 
 # ---------------------------------------------------------------------------
@@ -1181,6 +1214,36 @@ def route(
             invoice_line.get("description") or "unknown"
         )
         invoiced_amount = float(invoice_line.get("amount") or invoice_line.get("total") or 0.0)
+
+        # Auto-detect adjustment/surcharge lines that are not tariff-validated services.
+        # These bypass the tariff calculator and are accepted on face value.
+        _adj_kw = _classify_as_adjustment(service_type)
+        if _adj_kw:
+            logger.info(
+                f"Line {idx} ({service_type}): auto-classified as ADJUSTMENT "
+                f"(matched keyword '{_adj_kw}') — accepted on face value"
+            )
+            line_item_results.append(LineItemResult(
+                line_number=idx,
+                service_description=service_type,
+                sof_event_cited="N/A — adjustment/surcharge line",
+                tariff_rule_cited=f"Auto-detected non-tariff line (keyword: '{_adj_kw}') — accepted on face value",
+                expected_amount=invoiced_amount,
+                invoiced_amount=invoiced_amount,
+                currency=currency,
+                variance=0.0,
+                variance_pct=0.0,
+                verdict="ADJUSTMENT",
+                confidence_score=1.0,
+                confidence_label="HIGH",
+                handler_used="adjustment",
+                surcharges_applied=[],
+                overtime_applied=None,
+                human_review_flag=False,
+                human_review_reason="",
+                notes=f"Auto-classified as adjustment/surcharge — not validated against tariff",
+            ))
+            continue
 
         # Initialise review flags early — dimension validation below may set them
         human_review_flag = False
