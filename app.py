@@ -1,8 +1,29 @@
+import os
 import json
 import pathlib
 from datetime import datetime, timezone
 
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()  # local .env; on Streamlit Cloud, secrets are used instead
+
+
+def _resolve_secret(name: str, default: str | None = None) -> str | None:
+    """Read a secret from env (local .env / Cloud-injected) or st.secrets.
+
+    Works locally (.env via load_dotenv) and on Streamlit Community Cloud
+    (Settings → Secrets), where there is no .env file.
+    """
+    val = os.getenv(name)
+    if val:
+        return val
+    try:
+        if name in st.secrets:
+            return st.secrets[name]
+    except Exception:
+        pass
+    return default
 from core.invoice_normaliser import (
     normalise_invoice,
     normalise_invoice_fields,
@@ -551,6 +572,15 @@ with tab_verify:
     if pdf_files and st.button("🧭 Classify & Route PDFs", key="classify_route_btn"):
         from core.document_classifier import classify_pdf
 
+        _or_key   = _resolve_secret("OPENROUTER_API_KEY")
+        _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → module default
+        if not _or_key:
+            st.error(
+                "OPENROUTER_API_KEY is not configured. Add it to `.env` locally, "
+                "or to **Settings → Secrets** on Streamlit Cloud."
+            )
+            st.stop()
+
         # Names already routed (avoid re-classifying the same file on reruns).
         already = {
             d["name"] for bucket in routed_docs.values() for d in bucket
@@ -563,7 +593,7 @@ with tab_verify:
             progress = st.progress(0.0, text="Classifying…")
             for i, f in enumerate(new_files, start=1):
                 try:
-                    res = classify_pdf(f.getvalue())
+                    res = classify_pdf(f.getvalue(), api_key=_or_key, model=_or_model)
                     bucket = res["document_type"]  # invoice | sof | other
                     routed_docs.setdefault(bucket, []).append({
                         "name":       f.name,
