@@ -1,8 +1,29 @@
+import os
 import json
 import pathlib
 from datetime import datetime, timezone
 
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()  # local .env; on Streamlit Cloud, secrets are used instead
+
+
+def _resolve_secret(name: str, default: str | None = None) -> str | None:
+    """Read a secret from env (local .env / Cloud-injected) or st.secrets.
+
+    Works locally (.env via load_dotenv) and on Streamlit Community Cloud
+    (Settings → Secrets), where there is no .env file.
+    """
+    val = os.getenv(name)
+    if val:
+        return val
+    try:
+        if name in st.secrets:
+            return st.secrets[name]
+    except Exception:
+        pass
+    return default
 from core.invoice_normaliser import (
     normalise_invoice,
     normalise_invoice_fields,
@@ -529,6 +550,85 @@ with tab_verify:
             st.markdown(f'<small style="color:#dc3545">❌ Invalid JSON — {e}</small>',
                         unsafe_allow_html=True)
 
+    # ── PDF auto-classify & route (Agent 1) ───
+    st.markdown("#### 🤖 Upload PDF — auto-detect & route")
+    st.caption(
+        "Drop one or more PDFs. Each first page is rendered to an image and an "
+        "AI agent classifies it as Invoice, SOF, or Other — then files it into "
+        "the matching box below."
+    )
+    routed_docs = st.session_state.setdefault(
+        "routed_docs", {"invoice": [], "sof": [], "other": []}
+    )
+
+    pdf_files = st.file_uploader(
+        "Upload PDF(s) to classify",
+        type=["pdf"],
+        accept_multiple_files=True,
+        key="pdf_classify_upload",
+        label_visibility="collapsed",
+    )
+
+    if pdf_files and st.button("🧭 Classify & Route PDFs", key="classify_route_btn"):
+        from core.document_classifier import classify_pdf
+
+        _or_key   = _resolve_secret("OPENROUTER_API_KEY")
+        _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → module default
+        if not _or_key:
+            st.error(
+                "OPENROUTER_API_KEY is not configured. Add it to `.env` locally, "
+                "or to **Settings → Secrets** on Streamlit Cloud."
+            )
+            st.stop()
+
+        # Names already routed (avoid re-classifying the same file on reruns).
+        already = {
+            d["name"] for bucket in routed_docs.values() for d in bucket
+        }
+        new_files = [f for f in pdf_files if f.name not in already]
+
+        if not new_files:
+            st.info("These PDF(s) have already been classified and routed.")
+        else:
+            progress = st.progress(0.0, text="Classifying…")
+            for i, f in enumerate(new_files, start=1):
+                try:
+                    res = classify_pdf(f.getvalue(), api_key=_or_key, model=_or_model)
+                    bucket = res["document_type"]  # invoice | sof | other
+                    routed_docs.setdefault(bucket, []).append({
+                        "name":       f.name,
+                        "image_png":  res["image_png"],
+                        "confidence": res["confidence"],
+                        "reason":     res["reason"],
+                        "model":      res.get("model", ""),
+                    })
+                    st.toast(
+                        f"`{f.name}` → {bucket.upper()} "
+                        f"({res['confidence']:.0%})",
+                        icon="✅",
+                    )
+                except Exception as e:
+                    st.error(f"Failed to classify `{f.name}`: {e}")
+                progress.progress(i / len(new_files), text=f"Classified {i}/{len(new_files)}")
+            progress.empty()
+            st.session_state["routed_docs"] = routed_docs
+
+    def _render_routed(bucket: str) -> None:
+        """Show the rendered images routed into a given bucket, with a remove button."""
+        docs = st.session_state.get("routed_docs", {}).get(bucket, [])
+        if not docs:
+            return
+        st.markdown(f"**Routed here ({len(docs)}):**")
+        for idx, d in enumerate(docs):
+            st.image(d["image_png"], caption=f"{d['name']} — {d['confidence']:.0%}", use_container_width=True)
+            if d.get("reason"):
+                st.caption(f"🤖 {d['reason']}")
+            if st.button("✕ Remove", key=f"rm_{bucket}_{idx}_{d['name']}"):
+                st.session_state["routed_docs"][bucket].pop(idx)
+                st.rerun()
+
+    st.divider()
+
     # ── Upload boxes ──────────────────────────
     col_inv, col_sof, col_oth = st.columns(3)
 
@@ -549,6 +649,7 @@ with tab_verify:
                 label_visibility="collapsed",
             )
             _json_status(st.session_state.get("invoice_paste", ""))
+        _render_routed("invoice")
 
     with col_sof:
         st.markdown("#### 📋 SOF")
@@ -567,6 +668,7 @@ with tab_verify:
                 label_visibility="collapsed",
             )
             _json_status(st.session_state.get("sof_paste", ""))
+        _render_routed("sof")
 
     with col_oth:
         st.markdown("#### 📎 Others")
@@ -591,6 +693,7 @@ with tab_verify:
             _json_status(st.session_state.get("others_paste", ""))
         if other_files or st.session_state.get("others_paste", "").strip():
             st.info("Will be auto-processed in a future release.")
+        _render_routed("other")
 
     # ── ChatGPT extraction prompts ────────────
     with st.expander("💬 ChatGPT extraction prompts — click to copy & paste into ChatGPT"):
