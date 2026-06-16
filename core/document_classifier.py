@@ -118,6 +118,95 @@ def render_pdf_first_page(pdf_bytes: bytes, dpi: int = 150) -> bytes:
 # STEP 2 — classify the rendered image with a vision LLM (OpenRouter)
 # ---------------------------------------------------------------------------
 
+def call_vision_model(
+    prompt: str,
+    image_png: bytes,
+    api_key: str = None,
+    model: str = None,
+    timeout: int = 60,
+) -> str:
+    """
+    Send one text prompt + one PNG image to an OpenRouter vision model and
+    return the model's raw text reply.
+
+    This is the shared low-level call used by both Agent 1 (classification,
+    classify_image) and Agent 2 (field extraction, document_extractor) so they
+    always hit the SAME model and request shape.
+
+    Args:
+        prompt:    The instruction text shown to the model.
+        image_png: PNG image bytes (e.g. from render_pdf_first_page()).
+        api_key:   OpenRouter API key. Falls back to OPENROUTER_API_KEY env var.
+        model:     Vision-capable chat model id. Falls back to OPENROUTER_MODEL
+                   env var, then to DEFAULT_MODEL.
+        timeout:   HTTP timeout in seconds.
+
+    Returns:
+        The raw string content of the model's first choice message.
+
+    Raises:
+        EnvironmentError — OPENROUTER_API_KEY not set.
+        RuntimeError     — HTTP error or unparseable response envelope.
+    """
+    key = api_key or OPENROUTER_API_KEY
+    if not key:
+        raise EnvironmentError(
+            "OPENROUTER_API_KEY is not set. Add it to your .env file."
+        )
+    model_id = model or DEFAULT_MODEL
+
+    b64 = base64.b64encode(image_png).decode()
+    data_url = f"data:image/png;base64,{b64}"
+
+    payload = {
+        "model": model_id,
+        "messages": [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": prompt},
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                ],
+            }
+        ],
+        "temperature": 0,
+        # Ask for JSON; harmless if the model ignores it (we also parse defensively).
+        "response_format": {"type": "json_object"},
+    }
+
+    req = urllib.request.Request(
+        OPENROUTER_URL,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            # Optional attribution headers recommended by OpenRouter.
+            "HTTP-Referer": "https://github.com/scorpio/vendy-process",
+            "X-Title": "Vendy VI Calculator",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        detail = e.read().decode("utf-8", "replace")
+        raise RuntimeError(
+            f"OpenRouter HTTP {e.code} for model '{model_id}': {detail[:500]}"
+        )
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"OpenRouter request failed: {e.reason}")
+
+    try:
+        envelope = json.loads(body)
+        return envelope["choices"][0]["message"]["content"]
+    except (json.JSONDecodeError, KeyError, IndexError) as e:
+        raise RuntimeError(
+            f"Unexpected OpenRouter response shape: {e}\n{body[:500]}"
+        )
+
+
 def classify_image(
     image_png: bytes,
     api_key: str = None,
@@ -141,65 +230,11 @@ def classify_image(
         EnvironmentError — OPENROUTER_API_KEY not set.
         RuntimeError     — HTTP error or unparseable model response.
     """
-    key = api_key or OPENROUTER_API_KEY
-    if not key:
-        raise EnvironmentError(
-            "OPENROUTER_API_KEY is not set. Add it to your .env file."
-        )
     model_id = model or DEFAULT_MODEL
-
-    b64 = base64.b64encode(image_png).decode()
-    data_url = f"data:image/png;base64,{b64}"
-
-    payload = {
-        "model": model_id,
-        "messages": [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": _CLASSIFY_PROMPT},
-                    {"type": "image_url", "image_url": {"url": data_url}},
-                ],
-            }
-        ],
-        "temperature": 0,
-        # Ask for JSON; harmless if the model ignores it (we also parse defensively).
-        "response_format": {"type": "json_object"},
-    }
-
-    req = urllib.request.Request(
-        OPENROUTER_URL,
-        data=json.dumps(payload).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            # Optional attribution headers recommended by OpenRouter.
-            "HTTP-Referer": "https://github.com/scorpio/vendy-process",
-            "X-Title": "Vendy VI Calculator",
-        },
-        method="POST",
-    )
-
     logger.info(f"Classifying document image via OpenRouter model: {model_id}")
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            body = resp.read().decode("utf-8")
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode("utf-8", "replace")
-        raise RuntimeError(
-            f"OpenRouter HTTP {e.code} for model '{model_id}': {detail[:500]}"
-        )
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"OpenRouter request failed: {e.reason}")
-
-    try:
-        envelope = json.loads(body)
-        content = envelope["choices"][0]["message"]["content"]
-    except (json.JSONDecodeError, KeyError, IndexError) as e:
-        raise RuntimeError(
-            f"Unexpected OpenRouter response shape: {e}\n{body[:500]}"
-        )
-
+    content = call_vision_model(
+        _CLASSIFY_PROMPT, image_png, api_key=api_key, model=model_id, timeout=timeout
+    )
     parsed = _parse_classification(content)
     parsed["model"] = model_id
     return parsed
