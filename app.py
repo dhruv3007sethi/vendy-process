@@ -97,33 +97,6 @@ def var_color(pct: float) -> str:
 
 COMMENTS_FILE = ROOT / "officer_comments.json"
 
-
-def _mark_uploaded(container_key: str, message: str) -> None:
-    """Override a file uploader's dropzone text to show an 'Uploaded' state.
-
-    The uploader is wrapped in st.container(key=container_key), which Streamlit
-    renders with class `.st-key-<key>`; this injects CSS scoped to that class so
-    only the targeted column's dropzone shows the message (keeping the cloud icon
-    and Browse button intact)."""
-    st.markdown(
-        f"""
-        <style>
-        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] span {{
-            visibility: hidden; position: relative;
-        }}
-        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] span::after {{
-            content: "✅ {message}";
-            visibility: visible; position: absolute; left: 0; top: 0;
-            white-space: nowrap; color: #157347; font-weight: 600;
-        }}
-        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] small {{
-            display: none;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
 # ─────────────────────────────────────────────
 # Premium styling
 # ─────────────────────────────────────────────
@@ -240,6 +213,28 @@ hr { border-color: #dde4f0 !important; margin: 1.25rem 0 !important; }
 
 /* ── Headings (upload box labels h4) ── */
 h4 { color: #0d1f3c !important; font-weight: 700 !important; margin-bottom: 0.4rem !important; }
+
+/* ── Routed "Uploaded" card (replica of upload_cards.py design) ── */
+[class*="st-key-upcard_"] {
+    background: #eceffb !important;
+    border: 2px dashed #c2cae0 !important;
+    border-radius: 12px !important;
+    padding: 14px 16px !important;
+}
+[class*="st-key-upcard_"] button {
+    background: #ffffff !important;
+    border: 1px solid #d8deec !important;
+    color: #3b4256 !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+}
+[class*="st-key-upcard_"] button:hover { background: #f5f7ff !important; }
+/* the "Uploaded" button (disabled) shows the green tick state */
+[class*="st-key-upcard_"] button:disabled {
+    color: #16a34a !important;
+    border-color: #d8deec !important;
+    opacity: 1 !important;
+}
 </style>
 """
 
@@ -542,26 +537,35 @@ with tab_verify:
         st.rerun()
 
     def _render_routed(bucket: str) -> None:
-        """Show the rendered images routed into a given bucket, with extract + remove buttons."""
+        """Routed PDFs: show the 'Uploaded' card (replica of upload_cards.py) with a
+        View popover, then per-image Extract / Remove actions below it."""
         docs = st.session_state.get("routed_docs", {}).get(bucket, [])
         if not docs:
             return
         paste_key = _PASTE_KEY_FOR_BUCKET.get(bucket)
-        st.markdown(f"**Routed here ({len(docs)}):**")
+
+        # ── Uploaded / View card (matches the provided upload_cards.py design) ──
+        with st.container(key=f"upcard_{bucket}"):
+            c_up, c_view = st.columns(2)
+            with c_up:
+                st.button(f"✓  Uploaded ({len(docs)})", key=f"uploaded_{bucket}",
+                          disabled=True, use_container_width=True)
+            with c_view:
+                with st.popover("👁  View", use_container_width=True):
+                    for d in docs:
+                        st.image(d["image_png"],
+                                 caption=f"{d['name']} · {d['confidence']:.0%}",
+                                 use_container_width=True)
+                        if d.get("reason"):
+                            st.caption(f"🤖 {d['reason']}")
+
+        # ── Extraction actions (kept separate so the card layout is unchanged) ──
         if len(docs) > 1:
             if st.button(f"✨ Extract all ({len(docs)}) → JSON", key=f"exall_{bucket}"):
                 _extract_targets([(bucket, idx) for idx in range(len(docs))])
         for idx, d in enumerate(docs):
-            # Compact row: [👁 View] on the left, "Uploaded — filename" on the right.
-            c_view, c_label = st.columns([1, 3])
-            with c_view:
-                with st.popover("👁 View"):
-                    st.image(d["image_png"], caption=d["name"], use_container_width=True)
-                    if d.get("reason"):
-                        st.caption(f"🤖 {d['reason']}")
-            with c_label:
-                st.markdown(f"**Uploaded** — {d['name']} · {d['confidence']:.0%}")
-
+            if len(docs) > 1:
+                st.caption(f"`{d['name']}`")
             c_extract, c_remove = st.columns(2)
             with c_extract:
                 if st.button("✨ Extract → JSON", key=f"ex_{bucket}_{idx}_{d['name']}"):
@@ -634,16 +638,12 @@ with tab_verify:
 
     with col_inv:
         st.markdown("#### 📄 Invoice")
-        with st.container(key="upbox_invoice"):
-            invoice_file = st.file_uploader(
-                "Upload Invoice JSON",
-                type=["json"],
-                key="invoice_upload",
-                label_visibility="collapsed",
-            )
-        _inv_routed = st.session_state.get("routed_docs", {}).get("invoice", [])
-        if _inv_routed:
-            _mark_uploaded("upbox_invoice", f"Uploaded — {len(_inv_routed)} PDF(s) routed")
+        invoice_file = st.file_uploader(
+            "Upload Invoice JSON",
+            type=["json"],
+            key="invoice_upload",
+            label_visibility="collapsed",
+        )
         _inv_extracted = st.session_state.get("extracted_invoice", False)
         with st.expander("📦 Extracted JSON" if _inv_extracted else "Or paste JSON directly",
                          expanded=_inv_extracted):
@@ -659,16 +659,12 @@ with tab_verify:
 
     with col_sof:
         st.markdown("#### 📋 SOF")
-        with st.container(key="upbox_sof"):
-            sof_file = st.file_uploader(
-                "Upload SOF JSON",
-                type=["json"],
-                key="sof_upload",
-                label_visibility="collapsed",
-            )
-        _sof_routed = st.session_state.get("routed_docs", {}).get("sof", [])
-        if _sof_routed:
-            _mark_uploaded("upbox_sof", f"Uploaded — {len(_sof_routed)} PDF(s) routed")
+        sof_file = st.file_uploader(
+            "Upload SOF JSON",
+            type=["json"],
+            key="sof_upload",
+            label_visibility="collapsed",
+        )
         _sof_extracted = st.session_state.get("extracted_sof", False)
         with st.expander("📦 Extracted JSON" if _sof_extracted else "Or paste JSON directly",
                          expanded=_sof_extracted):
@@ -684,16 +680,12 @@ with tab_verify:
 
     with col_oth:
         st.markdown("#### 📎 Others")
-        with st.container(key="upbox_other"):
-            other_files = st.file_uploader(
-                "Upload other files",
-                accept_multiple_files=True,
-                key="other_upload",
-                label_visibility="collapsed",
-            )
-        _oth_routed = st.session_state.get("routed_docs", {}).get("other", [])
-        if _oth_routed:
-            _mark_uploaded("upbox_other", f"Uploaded — {len(_oth_routed)} PDF(s) routed")
+        other_files = st.file_uploader(
+            "Upload other files",
+            accept_multiple_files=True,
+            key="other_upload",
+            label_visibility="collapsed",
+        )
         if other_files:
             st.markdown("**Uploaded files:**")
             for f in other_files:
