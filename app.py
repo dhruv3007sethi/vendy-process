@@ -97,6 +97,33 @@ def var_color(pct: float) -> str:
 
 COMMENTS_FILE = ROOT / "officer_comments.json"
 
+
+def _mark_uploaded(container_key: str, message: str) -> None:
+    """Override a file uploader's dropzone text to show an 'Uploaded' state.
+
+    The uploader is wrapped in st.container(key=container_key), which Streamlit
+    renders with class `.st-key-<key>`; this injects CSS scoped to that class so
+    only the targeted column's dropzone shows the message (keeping the cloud icon
+    and Browse button intact)."""
+    st.markdown(
+        f"""
+        <style>
+        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] span {{
+            visibility: hidden; position: relative;
+        }}
+        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] span::after {{
+            content: "✅ {message}";
+            visibility: visible; position: absolute; left: 0; top: 0;
+            white-space: nowrap; color: #157347; font-weight: 600;
+        }}
+        .st-key-{container_key} [data-testid="stFileUploaderDropzoneInstructions"] small {{
+            display: none;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # ─────────────────────────────────────────────
 # Premium styling
 # ─────────────────────────────────────────────
@@ -607,12 +634,16 @@ with tab_verify:
 
     with col_inv:
         st.markdown("#### 📄 Invoice")
-        invoice_file = st.file_uploader(
-            "Upload Invoice JSON",
-            type=["json"],
-            key="invoice_upload",
-            label_visibility="collapsed",
-        )
+        with st.container(key="upbox_invoice"):
+            invoice_file = st.file_uploader(
+                "Upload Invoice JSON",
+                type=["json"],
+                key="invoice_upload",
+                label_visibility="collapsed",
+            )
+        _inv_routed = st.session_state.get("routed_docs", {}).get("invoice", [])
+        if _inv_routed:
+            _mark_uploaded("upbox_invoice", f"Uploaded — {len(_inv_routed)} PDF(s) routed")
         _inv_extracted = st.session_state.get("extracted_invoice", False)
         with st.expander("📦 Extracted JSON" if _inv_extracted else "Or paste JSON directly",
                          expanded=_inv_extracted):
@@ -628,12 +659,16 @@ with tab_verify:
 
     with col_sof:
         st.markdown("#### 📋 SOF")
-        sof_file = st.file_uploader(
-            "Upload SOF JSON",
-            type=["json"],
-            key="sof_upload",
-            label_visibility="collapsed",
-        )
+        with st.container(key="upbox_sof"):
+            sof_file = st.file_uploader(
+                "Upload SOF JSON",
+                type=["json"],
+                key="sof_upload",
+                label_visibility="collapsed",
+            )
+        _sof_routed = st.session_state.get("routed_docs", {}).get("sof", [])
+        if _sof_routed:
+            _mark_uploaded("upbox_sof", f"Uploaded — {len(_sof_routed)} PDF(s) routed")
         _sof_extracted = st.session_state.get("extracted_sof", False)
         with st.expander("📦 Extracted JSON" if _sof_extracted else "Or paste JSON directly",
                          expanded=_sof_extracted):
@@ -649,12 +684,16 @@ with tab_verify:
 
     with col_oth:
         st.markdown("#### 📎 Others")
-        other_files = st.file_uploader(
-            "Upload other files",
-            accept_multiple_files=True,
-            key="other_upload",
-            label_visibility="collapsed",
-        )
+        with st.container(key="upbox_other"):
+            other_files = st.file_uploader(
+                "Upload other files",
+                accept_multiple_files=True,
+                key="other_upload",
+                label_visibility="collapsed",
+            )
+        _oth_routed = st.session_state.get("routed_docs", {}).get("other", [])
+        if _oth_routed:
+            _mark_uploaded("upbox_other", f"Uploaded — {len(_oth_routed)} PDF(s) routed")
         if other_files:
             st.markdown("**Uploaded files:**")
             for f in other_files:
