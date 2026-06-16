@@ -88,7 +88,7 @@ Required schema:
 
 Extraction rules:
 - description  : copy the raw text verbatim, including any Spanish/Dutch/German/French words
-- is_adjustment: set true for bunker surcharges, fuel adjustments, discounts, VAT, IGIC, IVA lines
+- is_adjustment: set true for bunker surcharges, fuel adjustments, discounts, VAT, IGIC, IVA lines, and holiday/weekend/public holiday surcharges billed as separate line items
 - amounts      : always positive floats regardless of sign on invoice (is_adjustment handles type)
 - dates        : convert DD/MM/YYYY, DD.MM.YYYY, MMM-DD-YYYY, etc. to ISO YYYY-MM-DD
 - gt / loa / grt: look across the whole invoice (header, vessel details, table notes) — null if absent

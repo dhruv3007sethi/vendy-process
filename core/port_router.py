@@ -60,17 +60,34 @@ _ADJUSTMENT_KEYWORDS: frozenset = frozenset([
     "bunker adj",
 ])
 
+# Tariff-validated service types. Description-based adjustment detection is
+# suppressed for these so that a Berth line described as "Berth - Holiday Rate"
+# is not misclassified as a flat ADJUSTMENT and bypasses tariff validation.
+_TARIFF_SERVICE_TYPES: frozenset = frozenset([
+    "berth", "unberth", "shifting", "overtime",
+    "inward", "outward",           # common aliases from Dutch/Belgian invoices
+])
+
 
 def _classify_as_adjustment(service_type: str, description: str = "") -> str:
     """
     Returns the matched keyword if the line is a non-tariff adjustment,
     or an empty string if it should be validated against the tariff.
-    Checks both service_type and description — invoices often carry the
-    keyword only in the description (e.g. service_type='Unberth', description='HOLIDAY').
+
+    service_type is always checked. description is only checked when
+    service_type is NOT a known tariff service type — this prevents a
+    Berth line whose description mentions "holiday" from being misclassified
+    as a flat ADJUSTMENT instead of being run through the tariff + surcharge path.
     """
-    for text in (service_type.lower(), description.lower()):
+    st_lower = service_type.lower()
+    for kw in _ADJUSTMENT_KEYWORDS:
+        if kw in st_lower:
+            return kw
+    # Only scan description when service_type does not identify a tariff service.
+    if st_lower not in _TARIFF_SERVICE_TYPES and description:
+        desc_lower = description.lower()
         for kw in _ADJUSTMENT_KEYWORDS:
-            if kw in text:
+            if kw in desc_lower:
                 return kw
     return ""
 

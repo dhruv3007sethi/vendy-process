@@ -115,8 +115,13 @@
       "special_surcharges": {
         "LNG_vessels": 2.5,
         "deep_draft_vessels": 1.5,
-        "fog_visibility_under_500m": 1.5,
-        "holidays": 1.25
+        "fog_visibility_under_500m": 1.5
+      },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25,
+        "lng_vessel": 2.5,
+        "deep_draft": 1.5,
+        "fog_visibility": 1.5
       },
       "requires_human_review_for": [
         "inter_area_shifts"
@@ -148,13 +153,17 @@
           "column_9_undefined"
         ]
       },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25
+      },
       "requires_human_review_for": [
         "column_9_undefined"
       ],
       "open_doubts": [
         "Section 1 terminals confirmed as Zeehaven/Julianahaven/Zwijndrecht/s-Gravendeel",
         "Column 9 referenced in fog surcharge exclusion is undefined — fog surcharge applicability uncertain for these services"
-      ]
+      ],
+      "notes": "Holiday window: 17:00 day before to 07:00 day after"
     },
     "Santo_Domingo_Haina": {
       "dimension_type": "GT",
@@ -209,13 +218,16 @@
         "scheme": "German Ports concession",
         "pct": 15.0
       },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25
+      },
       "requires_human_review_for": [
         "ice_breaking_base_tariff"
       ],
       "open_doubts": [
         "Ice surcharge (25%) and ice breaking (50%) both reference 'Tariff A and B' but it is ambiguous whether surcharge applies to Tariff A only, Tariff B only, or both combined"
       ],
-      "notes": "Evening/weekend/holiday surcharge (25%) applies only if at least 50% of service is outside Mon-Fri 07:00-17:00"
+      "notes": "Evening/weekend/holiday surcharge (25%) applies only if at least 50% of service is outside Mon-Fri 07:00-17:00 — engine cannot auto-evaluate this condition; flag for human review if invoice claims this surcharge"
     },
     "Hamburg": {
       "dimension_type": "none",

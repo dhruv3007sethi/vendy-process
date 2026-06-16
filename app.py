@@ -157,8 +157,8 @@ Use ISO dates (YYYY-MM-DD). Use null for any field not found.
 - description: include full readable line (tug names, location, berth info).
 - date: use the specific event date for that line.
 - amount: convert European format — "3.468,83" → 3468.83
-- is_adjustment: true ONLY for discounts, VAT, bunker surcharges. false for towage lines
-  including Overtime.
+- is_adjustment: true ONLY for discounts, VAT, bunker surcharges, and holiday/weekend/public
+  holiday surcharges billed as separate line items. false for towage lines including Overtime.
 
 4. TUG COUNT AND OPERATIONAL STATUS
 Spanish towage invoices mark each tug with an operational status code:
