@@ -375,27 +375,61 @@ with tab_verify:
         if not new_files:
             st.info("These PDF(s) have already been classified and routed.")
         else:
+            # Read bytes on the main thread (UploadedFile is not thread-safe).
+            jobs = [(f.name, f.getvalue()) for f in new_files]
+
+            def _classify_one(name, data):
+                return name, classify_pdf(data, api_key=_or_key, model=_or_model)
+
+            # Agent 1 fans out across up to 3 sub-agents (parallel workers) only
+            # when more than one PDF is uploaded at once. A single PDF runs inline.
+            n_workers = min(3, len(jobs)) if len(jobs) > 1 else 1
+            label = f" ({n_workers} sub-agents)" if n_workers > 1 else ""
+
+            results = []  # (name, res|None, err|None)
             progress = st.progress(0.0, text="Classifying…")
-            for i, f in enumerate(new_files, start=1):
+            if n_workers > 1:
+                from concurrent.futures import ThreadPoolExecutor, as_completed
+                with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                    futs = {pool.submit(_classify_one, n, d): n for n, d in jobs}
+                    done = 0
+                    for fut in as_completed(futs):
+                        name = futs[fut]
+                        try:
+                            _, res = fut.result()
+                            results.append((name, res, None))
+                        except Exception as e:
+                            results.append((name, None, e))
+                        done += 1
+                        progress.progress(done / len(jobs),
+                                          text=f"Classified {done}/{len(jobs)}{label}")
+            else:
+                name, data = jobs[0]
                 try:
-                    res = classify_pdf(f.getvalue(), api_key=_or_key, model=_or_model)
-                    bucket = res["document_type"]  # invoice | sof | other
-                    routed_docs.setdefault(bucket, []).append({
-                        "name":       f.name,
-                        "image_png":  res["image_png"],
-                        "confidence": res["confidence"],
-                        "reason":     res["reason"],
-                        "model":      res.get("model", ""),
-                    })
-                    st.toast(
-                        f"`{f.name}` → {bucket.upper()} "
-                        f"({res['confidence']:.0%})",
-                        icon="✅",
-                    )
+                    _, res = _classify_one(name, data)
+                    results.append((name, res, None))
                 except Exception as e:
-                    st.error(f"Failed to classify `{f.name}`: {e}")
-                progress.progress(i / len(new_files), text=f"Classified {i}/{len(new_files)}")
+                    results.append((name, None, e))
+                progress.progress(1.0, text=f"Classified 1/{len(jobs)}")
             progress.empty()
+
+            # Apply results on the main thread (Streamlit calls are not thread-safe).
+            for name, res, err in results:
+                if err is not None:
+                    st.error(f"Failed to classify `{name}`: {err}")
+                    continue
+                bucket = res["document_type"]  # invoice | sof | other
+                routed_docs.setdefault(bucket, []).append({
+                    "name":       name,
+                    "image_png":  res["image_png"],
+                    "confidence": res["confidence"],
+                    "reason":     res["reason"],
+                    "model":      res.get("model", ""),
+                })
+                st.toast(
+                    f"`{name}` → {bucket.upper()} ({res['confidence']:.0%})",
+                    icon="✅",
+                )
             st.session_state["routed_docs"] = routed_docs
 
     # bucket (from Agent 1) → the paste-box widget that feeds route().
