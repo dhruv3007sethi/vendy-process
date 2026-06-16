@@ -437,11 +437,14 @@ with tab_verify:
     # invoice / sof and shows the JSON for the officer.
     _PASTE_KEY_FOR_BUCKET = {"invoice": "invoice_paste", "sof": "sof_paste"}
 
-    def _extract_all_in_bucket(bucket: str) -> None:
-        """Run Agent 2 over every routed image in a bucket, fanning out across up
-        to 3 sub-agents when there is more than one. Each result is stored in that
-        doc's `extracted_json` (shown in its expander) — the single paste box can
-        hold only one document, so batch results are surfaced per-image instead."""
+    def _extract_targets(targets: list) -> None:
+        """Run Agent 2 over a list of (bucket, idx) routed images, fanning out
+        across up to 3 sub-agents when there is more than one — across buckets too.
+
+        Each result is stored on its doc as `extracted_json`; any failure is stored
+        as `extract_error`. Both survive the st.rerun() below and are shown under
+        the image, so a failed extraction is never silently swallowed. The single
+        paste box holds only one document, so batch results are surfaced per-image."""
         _or_key   = _resolve_secret("OPENROUTER_API_KEY")
         _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → same model as Agent 1
         if not _or_key:
@@ -452,54 +455,63 @@ with tab_verify:
             return
 
         from core.document_extractor import extract_from_image
-        docs = st.session_state.get("routed_docs", {}).get(bucket, [])
-        jobs = [(idx, d["name"], d["image_png"]) for idx, d in enumerate(docs)]
+        routed = st.session_state.get("routed_docs", {})
+        # Resolve targets to concrete jobs (bucket, idx, name, png).
+        jobs = []
+        for bucket, idx in targets:
+            bucket_docs = routed.get(bucket, [])
+            if 0 <= idx < len(bucket_docs):
+                d = bucket_docs[idx]
+                jobs.append((bucket, idx, d["name"], d["image_png"]))
         if not jobs:
             return
 
-        def _extract_one(idx, name, png):
+        def _extract_one(bucket, idx, name, png):
             res = extract_from_image(png, bucket, api_key=_or_key, model=_or_model)
-            return idx, name, json.dumps(res["data"], indent=2, ensure_ascii=False)
+            return bucket, idx, json.dumps(res["data"], indent=2, ensure_ascii=False)
 
         n_workers = min(3, len(jobs)) if len(jobs) > 1 else 1
         label = f" ({n_workers} sub-agents)" if n_workers > 1 else ""
-        results = []  # (idx, json_text|None, err|None)
+        results = []  # (bucket, idx, json_text|None, err|None)
 
         progress = st.progress(0.0, text="Extracting…")
         if n_workers > 1:
             from concurrent.futures import ThreadPoolExecutor, as_completed
             with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                futs = {pool.submit(_extract_one, i, n, p): i for i, n, p in jobs}
+                futs = {pool.submit(_extract_one, b, i, n, p): (b, i)
+                        for b, i, n, p in jobs}
                 done = 0
                 for fut in as_completed(futs):
-                    idx = futs[fut]
+                    b, i = futs[fut]
                     try:
                         _, _, jtxt = fut.result()
-                        results.append((idx, jtxt, None))
+                        results.append((b, i, jtxt, None))
                     except Exception as e:
-                        results.append((idx, None, e))
+                        results.append((b, i, None, e))
                     done += 1
                     progress.progress(done / len(jobs),
                                       text=f"Extracted {done}/{len(jobs)}{label}")
         else:
-            idx, name, png = jobs[0]
+            b, i, name, png = jobs[0]
             try:
-                _, _, jtxt = _extract_one(idx, name, png)
-                results.append((idx, jtxt, None))
+                _, _, jtxt = _extract_one(b, i, name, png)
+                results.append((b, i, jtxt, None))
             except Exception as e:
-                results.append((idx, None, e))
+                results.append((b, i, None, e))
             progress.progress(1.0, text=f"Extracted 1/{len(jobs)}")
         progress.empty()
 
         ok = 0
-        for idx, jtxt, err in results:
+        for b, i, jtxt, err in results:
+            doc = st.session_state["routed_docs"][b][i]
             if err is not None:
-                st.error(f"Agent 2 failed on `{docs[idx]['name']}`: {err}")
-                continue
-            st.session_state["routed_docs"][bucket][idx]["extracted_json"] = jtxt
-            ok += 1
-        if ok:
-            st.toast(f"Extracted {ok}/{len(jobs)} {bucket.upper()} image(s)", icon="✨")
+                doc["extract_error"] = str(err)
+                doc.pop("extracted_json", None)
+            else:
+                doc["extracted_json"] = jtxt
+                doc.pop("extract_error", None)
+                ok += 1
+        st.toast(f"Extracted {ok}/{len(jobs)} image(s)", icon="✨")
         st.rerun()
 
     def _render_routed(bucket: str) -> None:
@@ -511,11 +523,17 @@ with tab_verify:
         st.markdown(f"**Routed here ({len(docs)}):**")
         if len(docs) > 1:
             if st.button(f"✨ Extract all ({len(docs)}) → JSON", key=f"exall_{bucket}"):
-                _extract_all_in_bucket(bucket)
+                _extract_targets([(bucket, idx) for idx in range(len(docs))])
         for idx, d in enumerate(docs):
-            st.image(d["image_png"], caption=f"{d['name']} — {d['confidence']:.0%}", use_container_width=True)
-            if d.get("reason"):
-                st.caption(f"🤖 {d['reason']}")
+            # Compact row: [👁 View] on the left, "Uploaded — filename" on the right.
+            c_view, c_label = st.columns([1, 3])
+            with c_view:
+                with st.popover("👁 View"):
+                    st.image(d["image_png"], caption=d["name"], use_container_width=True)
+                    if d.get("reason"):
+                        st.caption(f"🤖 {d['reason']}")
+            with c_label:
+                st.markdown(f"**Uploaded** — {d['name']} · {d['confidence']:.0%}")
 
             c_extract, c_remove = st.columns(2)
             with c_extract:
@@ -538,8 +556,10 @@ with tab_verify:
                             json_text = json.dumps(res["data"], indent=2, ensure_ascii=False)
                             if paste_key:
                                 # Stage for the next run, which seeds the paste box
-                                # before its widget is instantiated.
+                                # before its widget is instantiated, and relabel its
+                                # expander to "Extracted JSON".
                                 st.session_state.setdefault("pending_extract", {})[paste_key] = json_text
+                                st.session_state[f"extracted_{bucket}"] = True
                                 st.toast(f"`{d['name']}` extracted → {bucket.upper()} box", icon="✨")
                                 st.rerun()
                             else:
@@ -553,9 +573,32 @@ with tab_verify:
                     st.session_state["routed_docs"][bucket].pop(idx)
                     st.rerun()
 
+            if d.get("extract_error"):
+                st.error(f"Agent 2 failed on `{d['name']}`: {d['extract_error']}")
+            # Batch / "other" extracts (which don't auto-fill a paste box) are
+            # viewable per-image here.
             if d.get("extracted_json"):
-                with st.expander("📦 Extracted JSON"):
+                with st.popover("📦 Extracted JSON"):
                     st.code(d["extracted_json"], language="json")
+
+    # ── Global batch extraction across all routed images ──
+    _all_targets = [
+        (bucket, idx)
+        for bucket in ("invoice", "sof", "other")
+        for idx in range(len(st.session_state.get("routed_docs", {}).get(bucket, [])))
+    ]
+    if len(_all_targets) > 1:
+        if st.button(
+            f"✨ Extract all routed images ({len(_all_targets)}) → JSON",
+            key="exall_global",
+            type="primary",
+        ):
+            _extract_targets(_all_targets)
+        st.caption(
+            "Runs Agent 2 on every routed image (up to 3 sub-agents in parallel). "
+            "Each result appears under its image — use a single image's button to "
+            "send one extract into the paste box below."
+        )
 
     st.divider()
 
@@ -570,7 +613,9 @@ with tab_verify:
             key="invoice_upload",
             label_visibility="collapsed",
         )
-        with st.expander("Or paste JSON directly"):
+        _inv_extracted = st.session_state.get("extracted_invoice", False)
+        with st.expander("📦 Extracted JSON" if _inv_extracted else "Or paste JSON directly",
+                         expanded=_inv_extracted):
             st.text_area(
                 "Invoice JSON text",
                 key="invoice_paste",
@@ -589,7 +634,9 @@ with tab_verify:
             key="sof_upload",
             label_visibility="collapsed",
         )
-        with st.expander("Or paste JSON directly"):
+        _sof_extracted = st.session_state.get("extracted_sof", False)
+        with st.expander("📦 Extracted JSON" if _sof_extracted else "Or paste JSON directly",
+                         expanded=_sof_extracted):
             st.text_area(
                 "SOF JSON text",
                 key="sof_paste",
