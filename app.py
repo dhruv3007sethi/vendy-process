@@ -437,6 +437,71 @@ with tab_verify:
     # invoice / sof and shows the JSON for the officer.
     _PASTE_KEY_FOR_BUCKET = {"invoice": "invoice_paste", "sof": "sof_paste"}
 
+    def _extract_all_in_bucket(bucket: str) -> None:
+        """Run Agent 2 over every routed image in a bucket, fanning out across up
+        to 3 sub-agents when there is more than one. Each result is stored in that
+        doc's `extracted_json` (shown in its expander) — the single paste box can
+        hold only one document, so batch results are surfaced per-image instead."""
+        _or_key   = _resolve_secret("OPENROUTER_API_KEY")
+        _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → same model as Agent 1
+        if not _or_key:
+            st.error(
+                "OPENROUTER_API_KEY is not configured. Add it to `.env` locally, "
+                "or to **Settings → Secrets** on Streamlit Cloud."
+            )
+            return
+
+        from core.document_extractor import extract_from_image
+        docs = st.session_state.get("routed_docs", {}).get(bucket, [])
+        jobs = [(idx, d["name"], d["image_png"]) for idx, d in enumerate(docs)]
+        if not jobs:
+            return
+
+        def _extract_one(idx, name, png):
+            res = extract_from_image(png, bucket, api_key=_or_key, model=_or_model)
+            return idx, name, json.dumps(res["data"], indent=2, ensure_ascii=False)
+
+        n_workers = min(3, len(jobs)) if len(jobs) > 1 else 1
+        label = f" ({n_workers} sub-agents)" if n_workers > 1 else ""
+        results = []  # (idx, json_text|None, err|None)
+
+        progress = st.progress(0.0, text="Extracting…")
+        if n_workers > 1:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            with ThreadPoolExecutor(max_workers=n_workers) as pool:
+                futs = {pool.submit(_extract_one, i, n, p): i for i, n, p in jobs}
+                done = 0
+                for fut in as_completed(futs):
+                    idx = futs[fut]
+                    try:
+                        _, _, jtxt = fut.result()
+                        results.append((idx, jtxt, None))
+                    except Exception as e:
+                        results.append((idx, None, e))
+                    done += 1
+                    progress.progress(done / len(jobs),
+                                      text=f"Extracted {done}/{len(jobs)}{label}")
+        else:
+            idx, name, png = jobs[0]
+            try:
+                _, _, jtxt = _extract_one(idx, name, png)
+                results.append((idx, jtxt, None))
+            except Exception as e:
+                results.append((idx, None, e))
+            progress.progress(1.0, text=f"Extracted 1/{len(jobs)}")
+        progress.empty()
+
+        ok = 0
+        for idx, jtxt, err in results:
+            if err is not None:
+                st.error(f"Agent 2 failed on `{docs[idx]['name']}`: {err}")
+                continue
+            st.session_state["routed_docs"][bucket][idx]["extracted_json"] = jtxt
+            ok += 1
+        if ok:
+            st.toast(f"Extracted {ok}/{len(jobs)} {bucket.upper()} image(s)", icon="✨")
+        st.rerun()
+
     def _render_routed(bucket: str) -> None:
         """Show the rendered images routed into a given bucket, with extract + remove buttons."""
         docs = st.session_state.get("routed_docs", {}).get(bucket, [])
@@ -444,6 +509,9 @@ with tab_verify:
             return
         paste_key = _PASTE_KEY_FOR_BUCKET.get(bucket)
         st.markdown(f"**Routed here ({len(docs)}):**")
+        if len(docs) > 1:
+            if st.button(f"✨ Extract all ({len(docs)}) → JSON", key=f"exall_{bucket}"):
+                _extract_all_in_bucket(bucket)
         for idx, d in enumerate(docs):
             st.image(d["image_png"], caption=f"{d['name']} — {d['confidence']:.0%}", use_container_width=True)
             if d.get("reason"):
