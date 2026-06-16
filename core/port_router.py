@@ -502,13 +502,85 @@ def _build_surcharge_list(
         mult = multipliers.get("deep_draft", 1.5)
         surcharges.append({"type": "deep_draft", "multiplier": mult})
 
-    if invoice_line.get("shifting"):
-        mult = multipliers.get("shifting", 1.3)
-        surcharges.append({
-            "type": "shifting",
-            "multiplier": mult,
-            "shift_type": invoice_line.get("shift_type", "intra_area")
-        })
+    # --- Shifting ---
+    # Triggers on explicit invoice flag OR when the line's service_type is "Shifting"
+    is_shifting = (
+        invoice_line.get("shifting")
+        or invoice_line.get("service_type", "").lower() == "shifting"
+    )
+    if is_shifting:
+        calc_pattern   = profile.get("calculation_pattern", "")
+        shifting_logic = profile.get("shifting_logic")
+        shift_type     = (invoice_line.get("shift_type") or "").lower()
+
+        if calc_pattern == "concession_check_only":
+            # No tariff data (Hamburg etc.) — shifting cannot be validated
+            review_reasons.append(
+                f"{port}: no tariff data — shifting charge cannot be validated; "
+                "confirm amount with vendor"
+            )
+
+        elif isinstance(shifting_logic, dict) and shifting_logic:
+            # Port has structured shifting_logic — find the intra / inter rule
+            intra_key = next((k for k in shifting_logic if k.startswith("intra")), None)
+            inter_key = next((k for k in shifting_logic if k.startswith("inter")), None)
+
+            # Select active rule from invoice shift_type; default to intra
+            if shift_type.startswith("inter") and inter_key:
+                active_key = inter_key
+            elif shift_type.startswith("intra") and intra_key:
+                active_key = intra_key
+            elif intra_key:
+                active_key = intra_key
+                if inter_key:
+                    review_reasons.append(
+                        f"{port}: shift type not specified on invoice — assuming "
+                        f"{intra_key}; verify if this is an inter-area/zone shift"
+                    )
+            else:
+                active_key = next(iter(shifting_logic), None)
+
+            rule = shifting_logic.get(active_key) if active_key else None
+
+            if isinstance(rule, str) and ("review" in rule or "special" in rule):
+                review_reasons.append(
+                    f"{port}: {(active_key or '').replace('_', ' ')} shifting "
+                    "requires special arrangement — cannot validate automatically; "
+                    "escalate to vendor"
+                )
+            elif isinstance(rule, dict):
+                mult    = float(rule.get("multiplier", 1.3))
+                max_hrs = rule.get("max_duration_hrs")
+                surcharges.append({
+                    "type": "shifting",
+                    "multiplier": mult,
+                    "shift_type": active_key or shift_type,
+                })
+                if max_hrs and sof_event:
+                    dur = int(sof_event.get("duration_mins") or 0)
+                    if dur > max_hrs * 60:
+                        review_reasons.append(
+                            f"{port}: shifting duration {dur} min exceeds tariff "
+                            f"maximum {int(max_hrs * 60)} min — excess time may "
+                            "require separate billing at overtime rates"
+                        )
+            else:
+                # Unrecognised rule string — safe fallback
+                mult = multipliers.get("shifting", 1.3)
+                surcharges.append({
+                    "type": "shifting",
+                    "multiplier": mult,
+                    "shift_type": active_key or shift_type,
+                })
+
+        else:
+            # No structured shifting_logic — use surcharge_multipliers.shifting
+            mult = multipliers.get("shifting", 1.3)
+            surcharges.append({
+                "type": "shifting",
+                "multiplier": mult,
+                "shift_type": shift_type or "intra_area",
+            })
 
     if invoice_line.get("dry_dock"):
         mult = multipliers.get("dry_dock", 1.5)

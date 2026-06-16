@@ -46,6 +46,16 @@
         "base_1st_2nd_hour": 1600.94,
         "trigger": "after standard assist to berth if tug retained"
       },
+      "shifting_logic": {
+        "intra_zone": {
+          "multiplier": 0.75,
+          "note": "25% discount on base rate when shifting within the same zone"
+        },
+        "inter_zone": {
+          "multiplier": 2.0,
+          "note": "100% surcharge (double rate) when shifting between different zones"
+        }
+      },
       "requires_human_review_for": [
         "zone_7_excess_billing_stacking"
       ],
@@ -115,8 +125,12 @@
         "MAASVLAKTE": "maasvlakte_ii_rate"
       },
       "shifting_logic": {
-        "intra_area": "40pct_surcharge_max_3hrs",
-        "inter_area": "special_arrangement_required"
+        "intra_area": {
+          "multiplier": 1.4,
+          "max_duration_hrs": 3.0,
+          "note": "40% surcharge on base rate; billing capped at 3 hours"
+        },
+        "inter_area": "review_required"
       },
       "special_surcharges": {
         "LNG_vessels": 2.5,
