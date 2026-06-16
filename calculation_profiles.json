@@ -82,6 +82,12 @@
         "sunday_public_holiday": 1.5,
         "hemiksem_hoboken": 1.15
       },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "weekend",
+          "note": "Applies to Sunday and public holidays; SOF date auto-detects Sunday; public holidays flagged for review"
+        }
+      },
       "shifting_logic": "cumulative_sum_of_assisted_sections",
       "requires_human_review_for": [],
       "notes": "Holiday window: 22:00 day before to 07:00 day after"
@@ -123,6 +129,12 @@
         "deep_draft": 1.5,
         "fog_visibility": 1.5
       },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "public_holiday_only",
+          "note": "Weekends do NOT attract a surcharge at Rotterdam; public holidays only — flag for review"
+        }
+      },
       "requires_human_review_for": [
         "inter_area_shifts"
       ],
@@ -155,6 +167,12 @@
       },
       "surcharge_multipliers": {
         "sunday_public_holiday": 1.25
+      },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "public_holiday_only",
+          "note": "Officially recognized holidays only — not weekends; flag for review"
+        }
       },
       "requires_human_review_for": [
         "column_9_undefined"
@@ -220,6 +238,13 @@
       },
       "surcharge_multipliers": {
         "sunday_public_holiday": 1.25
+      },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "outside_hours_50pct",
+          "outside_hours_pct_threshold": 0.5,
+          "note": "Applies only if ≥50% of service is outside Mon–Fri 07:00–17:00; auto-evaluated from SOF timing"
+        }
       },
       "requires_human_review_for": [
         "ice_breaking_base_tariff"
