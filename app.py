@@ -955,6 +955,45 @@ with tab_verify:
 </div>
 """, unsafe_allow_html=True)
 
+            # ── Shifting cost sub-item ────────────────────────────
+            # If this line has a shifting surcharge applied, show it as a
+            # clearly labelled separate sub-row so the officer can see the
+            # base towage cost and the shifting premium side by side.
+            _shifting_surcharges = [
+                s for s in (li.get("surcharges_applied") or [])
+                if s.get("name") == "shifting"
+            ]
+            for _sc in _shifting_surcharges:
+                _sc_amt  = _sc.get("amount", 0.0)
+                _sc_mult = _sc.get("multiplier", 1.0)
+                _sc_type = (_sc.get("shift_type") or "").replace("_", "-")
+                _sc_base = round(expected - _sc_amt, 2) if expected else 0.0
+                _sc_label = f"Shifting Costs ({_sc_type})" if _sc_type else "Shifting Costs"
+                st.markdown(f"""
+<div style="background:#f7f9fd;border:1px solid #dde4f0;border-radius:8px;
+            padding:0.6rem 1.25rem;margin:-0.3rem 0 0.5rem 1.75rem;
+            border-left:3px solid #6c757d;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">
+    <div style="font-weight:600;color:#4a5568;font-size:0.88rem;">
+        &#8627;&nbsp; {_sc_label}
+        <span style="font-weight:400;color:#6b7a9d;font-size:0.8rem;margin-left:0.5rem;">
+            &times;{_sc_mult} on base
+        </span>
+    </div>
+    <span style="background:#6c757d;color:white;padding:2px 10px;border-radius:12px;
+                 font-size:0.75rem;font-weight:600;">SURCHARGE</span>
+  </div>
+  <div style="display:flex;gap:2.5rem;margin-top:0.4rem;flex-wrap:wrap;">
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Base Towage</span><br>
+         <span style="color:#4a5568;font-weight:600;font-size:0.88rem;">{fmt_eur(_sc_base, currency)}</span></div>
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Shifting Premium</span><br>
+         <span style="color:#4a5568;font-weight:600;font-size:0.88rem;">{fmt_eur(_sc_amt, currency)}</span></div>
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Total Expected</span><br>
+         <span style="color:#0d1f3c;font-weight:700;font-size:0.88rem;">{fmt_eur(expected, currency)}</span></div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
             # ── 8d. Audit trail expander (sits below the card) ──────
             with st.expander(f"Line {ln} — audit trail & details"):
                 ac1, ac2 = st.columns(2)
