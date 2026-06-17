@@ -1378,10 +1378,74 @@ def _get_rates_data(tariff_data: dict, zone: Optional[str], route_hint: Optional
 
 
 # ---------------------------------------------------------------------------
+# MULTI-DATE MERGE
+# ---------------------------------------------------------------------------
+
+_VERDICT_RANK = {"AUTO_APPROVED": 0, "MISMATCH": 1, "REVIEW_REQUIRED": 2}
+
+
+def _merge(results: List[dict]) -> dict:
+    """
+    Merge per-date _route_single_date() results into one response dict.
+
+    Verdict  : worst across groups (REVIEW_REQUIRED > MISMATCH > AUTO_APPROVED)
+    Confidence: min across groups
+    Financials: summed
+    Lines    : concatenated and renumbered 1…N
+    """
+    if len(results) == 1:
+        return results[0]
+
+    all_lines = []
+    for r in results:
+        all_lines.extend(r.get("line_items", []))
+    for i, line in enumerate(all_lines, start=1):
+        line["line_number"] = i
+
+    overall_verdict = max(
+        (r.get("overall_verdict", "AUTO_APPROVED") for r in results),
+        key=lambda v: _VERDICT_RANK.get(v, 0),
+    )
+
+    overall_confidence = min(r.get("overall_confidence", 1.0) for r in results)
+    if overall_confidence >= 0.90:
+        conf_label = "HIGH"
+    elif overall_confidence >= 0.70:
+        conf_label = "MEDIUM"
+    else:
+        conf_label = "LOW"
+
+    first = results[0]
+    return {
+        "invoice_reference":      first.get("invoice_reference", ""),
+        "vendor":                 first.get("vendor", ""),
+        "port":                   first.get("port", ""),
+        "vessel_name":            first.get("vessel_name", ""),
+        "vessel_dimension_type":  first.get("vessel_dimension_type", ""),
+        "vessel_dimension_value": first.get("vessel_dimension_value", 0.0),
+        "service_date":           first.get("service_date", ""),
+        "currency":               first.get("currency", "EUR"),
+        "validated_at":           first.get("validated_at", ""),
+        "overall_verdict":            overall_verdict,
+        "overall_confidence":         round(overall_confidence, 4),
+        "overall_confidence_label":   conf_label,
+        "human_review_required":      any(r.get("human_review_required") for r in results),
+        "total_expected":         round(sum(r.get("total_expected",        0.0) for r in results), 2),
+        "total_invoiced":         round(sum(r.get("total_invoiced",        0.0) for r in results), 2),
+        "total_variance":         round(sum(r.get("total_variance",        0.0) for r in results), 2),
+        "fuel_surcharge_total":   round(sum(r.get("fuel_surcharge_total",  0.0) for r in results), 2),
+        "invoice_amount_gross":   round(sum(r.get("invoice_amount_gross",  0.0) for r in results), 2),
+        "invoice_amount_net":     round(sum(r.get("invoice_amount_net",    0.0) for r in results), 2),
+        "summary_notes": [note for r in results for note in r.get("summary_notes", [])],
+        "line_items":    all_lines,
+    }
+
+
+# ---------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # ---------------------------------------------------------------------------
 
-def route(
+def _route_single_date(
     port: str,
     sof_data: dict,
     invoice_lines: List[dict],
@@ -1885,3 +1949,65 @@ def route(
     )
 
     return to_dict(result)
+
+
+def route(
+    port: str,
+    sof_data: dict,
+    invoice_lines: List[dict],
+    tariff_data: dict,
+    calculation_profiles: dict,
+    invoice_reference: str = "",
+    vendor: str = "Boluda",
+    vessel_name: str = "",
+    service_date: str = "",
+    match_tolerance_pct: float = 1.0,
+    adjustment_lines: List[dict] = None,
+) -> dict:
+    """
+    Public entry point.
+
+    Detects whether invoice_lines span multiple service dates.
+    - Single date (or all lines undated): delegates directly to _route_single_date()
+      with no behaviour change.
+    - Multiple dates: groups lines by date, calls _route_single_date() per group
+      (each with its own service_date so SOF matching stays accurate), then merges.
+    - Undated lines: fall back to the caller-supplied service_date, mirroring the
+      original single-date behaviour and preventing silent data loss.
+    """
+    dated   = [l for l in invoice_lines if l.get("date")]
+    undated = [l for l in invoice_lines if not l.get("date")]
+    dates   = sorted(set(l["date"] for l in dated))
+
+    # Fast path — single date and no undated lines: identical to old behaviour
+    if len(dates) <= 1 and not undated:
+        return _route_single_date(
+            port=port, sof_data=sof_data, invoice_lines=invoice_lines,
+            tariff_data=tariff_data, calculation_profiles=calculation_profiles,
+            invoice_reference=invoice_reference, vendor=vendor,
+            vessel_name=vessel_name, service_date=service_date,
+            match_tolerance_pct=match_tolerance_pct, adjustment_lines=adjustment_lines,
+        )
+
+    # Multi-date path
+    results = []
+    for d in dates:
+        group = [l for l in dated if l["date"] == d]
+        results.append(_route_single_date(
+            port=port, sof_data=sof_data, invoice_lines=group,
+            tariff_data=tariff_data, calculation_profiles=calculation_profiles,
+            invoice_reference=invoice_reference, vendor=vendor,
+            vessel_name=vessel_name, service_date=d,
+            match_tolerance_pct=match_tolerance_pct, adjustment_lines=adjustment_lines,
+        ))
+
+    if undated:
+        results.append(_route_single_date(
+            port=port, sof_data=sof_data, invoice_lines=undated,
+            tariff_data=tariff_data, calculation_profiles=calculation_profiles,
+            invoice_reference=invoice_reference, vendor=vendor,
+            vessel_name=vessel_name, service_date=service_date,
+            match_tolerance_pct=match_tolerance_pct, adjustment_lines=adjustment_lines,
+        ))
+
+    return _merge(results)
