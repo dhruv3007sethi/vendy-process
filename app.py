@@ -93,230 +93,14 @@ def var_color(pct: float) -> str:
 COMMENTS_FILE = ROOT / "officer_comments.json"
 
 # ─────────────────────────────────────────────
-# ChatGPT extraction prompts
+# Extraction prompts — defined in core/pdf_to_json.py (single source of truth)
+# Imported here for the manual ChatGPT copy-paste expander in the UI.
 # ─────────────────────────────────────────────
-
-_PROMPT_INVOICE = '''\
-You are an expert maritime invoice parser.
-
-Your task is to extract structured data from a towage invoice (which may be scanned,
-semi-structured, or contain OCR artifacts).
-
-Output ONLY valid JSON using EXACTLY the structure below.
-Do not add explanations or extra text.
-
-Use ISO dates (YYYY-MM-DD). Use null for any field not found.
-
-{
-  "invoice_reference": "<invoice number>",
-  "vendor": "<issuing company name>",
-  "vessel_name": "<vessel name>",
-  "service_date": "<date of first towage service on this invoice, YYYY-MM-DD>",
-  "currency": "EUR",
-  "loa": <vessel length overall in metres, number or null>,
-  "gt": <vessel gross tonnage, number or null>,
-  "zone": "<explicit terminal, quay or berth name if stated, or null>",
-  "line_items": [
-    {
-      "service_type": "<Berth | Unberth | Shifting>",
-      "description": "<full line description including tug names>",
-      "date": "<YYYY-MM-DD>",
-      "amount": <charge amount as positive number>,
-      "tug_count": <total tugs on this line (SM + C combined), or null>,
-      "active_tug_count": <tugs marked (C) — performed the maneuver, or null>,
-      "standby_tug_count": <tugs marked (SM) — on standby, or null>,
-      "is_adjustment": false
-    }
-  ]
-}
-
---- EXTRACTION RULES ---
-
-1. INVOICE METADATA
-- invoice_reference: extract from "Invoice No.", "Factura Nº", or similar.
-  Do NOT use PO/Ref/Sales Order/Job Card numbers.
-- vendor: extract issuing company from header/footer (NOT the customer block).
-- vessel_name: extract from "Vessel", "Buque", or similar field.
-
-2. SERVICE DATE
-- service_date = date the first towage service on this invoice occurred.
-  Derive it from the date of the first line_item — do NOT use the invoice issue date
-  and do NOT scan for earlier non-towage dates (EOSP, NOR, anchorage, etc.).
-  Example: if Berth line is dated 2026-02-11 and invoice is dated 2026-02-16,
-  set service_date: "2026-02-11".
-  On Boluda Rotterdam invoices the service date is on the Sales Order line:
-  "Sales Order XXXXX  Job Card XXXXXXX  Date DD.MM.YYYY".
-
-3. LINE ITEMS
-- Each charge must be a separate line_item.
-- Map service types:
-    "Atraque"                                → Berth
-    "Desatraque"                             → Unberth
-    "Shift" / "Shifting"                     → Shifting
-    "Servicios especiales" / "Special services" → Overtime
-- description: include full readable line (tug names, location, berth info).
-- date: use the specific event date for that line.
-- amount: convert European format — "3.468,83" → 3468.83
-- is_adjustment: true ONLY for discounts, VAT, bunker surcharges, and holiday/weekend/public
-  holiday surcharges billed as separate line items. false for towage lines including Overtime.
-
-4. TUG COUNT AND OPERATIONAL STATUS
-Spanish towage invoices mark each tug with an operational status code:
-  (C)  = Con maniobra  — tug actively PERFORMED the maneuver
-  (SM) = Sin maniobra  — tug was on STANDBY only
-
-Read each tug name in the description and note its suffix:
-- A tug with no suffix → treat as (C) active.
-- Set fields as follows:
-    tug_count        = total tugs on this line (SM + C combined)
-    active_tug_count = count of tugs marked (C)
-    standby_tug_count= count of tugs marked (SM)
-
-Examples:
-  "SERTOSA VEINTISIETE V.B. ALGECIRAS (SM)"
-    → SERTOSA VEINTISIETE: no suffix → active (C)
-    → V.B. ALGECIRAS (SM): standby
-    → tug_count: 2, active_tug_count: 1, standby_tug_count: 1
-
-  "SERTOSA VEINTISIETE V.B. SIMUN (C)"
-    → both tugs active (C)
-    → tug_count: 2, active_tug_count: 2, standby_tug_count: 0
-
-If no tug status codes appear (e.g. Dutch/Belgian invoices listing "TUG 1 / TUG 2"),
-consolidate into ONE line_item with tug_count = number of tugs, active_tug_count = null,
-standby_tug_count = null, and amount = TOTAL amount for all tugs combined (sum all tug lines).
-Example: TUG 1 = 4,648 and TUG 2 = 4,648 → amount = 9,296, tug_count = 2.
-
-IMPORTANT — Dutch/Belgian adjustment lines (Discounts, Bunker, VAT):
-Each TUG block on Dutch/Belgian invoices has its own Discount and Bunker rows beneath it.
-You MUST extract these as separate adjustment line_items (is_adjustment: true).
-Sum the amounts across all TUG blocks into one line per type.
-Example: TUG 1 Discount = 2,184.56 and TUG 2 Discount = 2,184.56 → one adjustment line_item:
-  { "description": "Discounts", "amount": 4369.12, "is_adjustment": true }
-Example: TUG 1 BUNKER ADJ. FACTOR = 836.64 and TUG 2 BUNKER ADJ. FACTOR = 836.64 → one adjustment line_item:
-  { "description": "Bunker Adjustment Factor", "amount": 1673.28, "is_adjustment": true }
-Do NOT omit these lines — they are required for the net payable calculation.
-
-5. ZONE
-- Extract zone ONLY if an explicit terminal, quay, or berth name is stated on the
-  invoice (e.g. "Moeve", "Terminal Norte", "Muelle 7", "Jetty B").
-- Do NOT extract tug vessel names as zone. Tug names follow patterns like
-  "V.B. ALGECIRAS", "V.B. SIMUN", "SERTOSA VEINTISIETE" — ignore these for zone.
-- If no explicit terminal or berth name appears, set zone: null.
-- Prefer location tied to the first service (Berth) if multiple appear.
-
-6. GT / LOA EXTRACTION (CRITICAL)
-
-A. Inline vessel format (common on Dutch/Belgian invoices):
-   Example: "VESSEL IMO XXXXX GT 64.827 LOA 256,00"
-
-B. Labeled field format (common on Spanish/European invoices):
-   Look for: "G.T.", "GT", "Gross Tonnage", "L.O.A.", "LOA", "Length Overall"
-   Examples: "G.T./Gross Tonnage: 24.120"  →  gt: 24120
-             "LOA: 256,00"                  →  loa: 256.0
-
-C. Normalisation rules (apply to ALL formats):
-   European invoices use dot (.) as thousands separator, comma (,) as decimal.
-   - Remove dots used as thousands separators
-   - Replace commas used as decimal separators with dots
-   Examples: "24.120" → 24120  |  "256,00" → 256.0  |  "64.827" → 64827
-
-D. Extraction priority: labeled values → inline vessel string → null
-
-E. Data integrity:
-   - NEVER drop leading digits or truncate numbers
-   - GT must be a whole number (integer)
-   - LOA must be a float if decimals exist
-
-7. CURRENCY
-- Always set to "EUR"
-
-8. NOTES (only if present)
-- If handwritten or special instructions exist, add:
-  "notes": ["text", "text"]
-
-9. STRICT OUTPUT RULES
-- Output ONLY JSON — no comments, no explanations
-- All numbers properly formatted, all dates in ISO format (YYYY-MM-DD)
-'''
-
-_PROMPT_SOF = '''\
-Convert this Statement of Facts (SOF) or timesheet to JSON using EXACTLY this structure.
-Use ISO dates (YYYY-MM-DD) and 24-hour times (HH:MM). Use null for any field not found.
-
-{
-  "vessel": {
-    "name": "<vessel name>",
-    "imo": "<IMO number as string, or null>",
-    "gt": <gross tonnage as number, or null>,
-    "loa": <length overall in metres as number, or null>
-  },
-  "port": "<port name>",
-  "events": [
-    {
-      "service_type": "<Berth | Unberth | Shifting | empty string for non-towage events>",
-      "description": "<event description, copy verbatim>",
-      "date": "<YYYY-MM-DD>",
-      "time": "<HH:MM or null>",
-      "tug_count": <number or null>
-    }
-  ]
-}
-
-Rules:
-- Include ALL events from the SOF, not just towage events. Non-towage events
-  (e.g. EOSP, NOR tendered, commenced loading) get service_type: ""
-- Towage events: set service_type to "Berth" (arrival/inward), "Unberth"
-  (departure/outward), or "Shifting" (moving between berths)
-- Key Berth indicators: "first line ashore", "all fast", "tugs made fast" (arrival),
-  "commenced mooring", "pilot on board" (inward)
-- Key Unberth indicators: "last line", "cast off", "tugs made fast" (departure),
-  "commenced unmooring", "passing breakwater" (outward)
-- tug_count: extract from the event line if stated (e.g. "2 tugs"), else null
-- If the SOF covers multiple vessels, extract events for ALL vessels but note the
-  vessel name in the description for each event
-- dates: convert DD/MM/YYYY, DD.MM.YYYY to ISO YYYY-MM-DD
-- times: convert to 24-hour HH:MM format
-'''
-
-_PROMPT_TUG_CONFIRMATION = '''\
-Convert this port agent tug confirmation email to JSON using EXACTLY this structure.
-Use ISO dates (YYYY-MM-DD) and 24-hour times (HH:MM). Use null for any field not found.
-
-{
-  "vessel": {
-    "name": "<vessel name — from subject line or email body>",
-    "imo": null,
-    "gt": null,
-    "loa": null
-  },
-  "port": "<port name>",
-  "source_type": "tug_confirmation_email",
-  "events": [
-    {
-      "service_type": "<Berth | Unberth>",
-      "description": "<brief description>",
-      "date": "<YYYY-MM-DD or null if not stated>",
-      "time": "<HH:MM or null if not stated>",
-      "tug_count": <number or null>,
-      "terminal": "<terminal name or null>",
-      "berth": "<berth number/letter or null>"
-    }
-  ]
-}
-
-Rules:
-- If "Tug Count (In/Out): N" is a single number, create TWO events — one Berth and
-  one Unberth — each with tug_count: N
-- If tug counts are separate (e.g. "In: 2 / Out: 3"), use each count on its event
-- ETD in the subject line = Unberth date. ETA or arrival date = Berth date.
-  If only ETD is stated, set Unberth date to that value and Berth date to null.
-- Vessel name: extract from the subject line (format: .../VESSEL NAME/.../PORT/...)
-- Terminal Name → terminal field; Berth Number → berth field
-- Do not invent times or dates not explicitly stated — use null
-- If this is an email chain, read the MOST RECENT agent reply for the confirmed
-  values (ignore the blank template in the original request)
-'''
+from core.pdf_to_json import (
+    INVOICE_EXTRACTION_PROMPT      as _PROMPT_INVOICE,
+    SOF_EXTRACTION_PROMPT          as _PROMPT_SOF,
+    TUG_CONFIRMATION_EXTRACTION_PROMPT as _PROMPT_TUG_CONFIRMATION,
+)
 
 # ─────────────────────────────────────────────
 # Premium styling
@@ -570,7 +354,7 @@ with tab_verify:
     )
 
     if pdf_files and st.button("🧭 Classify & Route PDFs", key="classify_route_btn"):
-        from core.document_classifier import classify_pdf
+        from core.pdf_to_json import classify_and_extract
 
         _or_key   = _resolve_secret("OPENROUTER_API_KEY")
         _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → module default
@@ -590,22 +374,33 @@ with tab_verify:
         if not new_files:
             st.info("These PDF(s) have already been classified and routed.")
         else:
-            progress = st.progress(0.0, text="Classifying…")
+            progress = st.progress(0.0, text="Classifying & extracting…")
             for i, f in enumerate(new_files, start=1):
                 try:
-                    res = classify_pdf(f.getvalue(), api_key=_or_key, model=_or_model)
+                    res = classify_and_extract(f.getvalue(), api_key=_or_key, model=_or_model)
                     bucket = res["document_type"]  # invoice | sof | other
+                    extracted = res.get("extracted_json")
                     routed_docs.setdefault(bucket, []).append({
-                        "name":       f.name,
-                        "image_png":  res["image_png"],
-                        "confidence": res["confidence"],
-                        "reason":     res["reason"],
-                        "model":      res.get("model", ""),
+                        "name":             f.name,
+                        "image_png":        res["image_png"],
+                        "confidence":       res["confidence"],
+                        "reason":           res["reason"],
+                        "model":            res.get("model", ""),
+                        "extracted_json":   extracted,
+                        "extraction_error": res.get("extraction_error"),
                     })
+                    # Auto-populate the JSON paste box when extraction succeeds
+                    if extracted and bucket in ("invoice", "sof"):
+                        paste_key = "invoice_paste" if bucket == "invoice" else "sof_paste"
+                        st.session_state[paste_key] = json.dumps(extracted, indent=2, ensure_ascii=False)
+                    toast_suffix = " + JSON extracted" if extracted else (
+                        f" (extraction failed: {res.get('extraction_error', '')[:60]})"
+                        if res.get("extraction_error") else ""
+                    )
                     st.toast(
                         f"`{f.name}` → {bucket.upper()} "
-                        f"({res['confidence']:.0%})",
-                        icon="✅",
+                        f"({res['confidence']:.0%}){toast_suffix}",
+                        icon="✅" if extracted else "🔍",
                     )
                 except Exception as e:
                     st.error(f"Failed to classify `{f.name}`: {e}")
@@ -623,6 +418,10 @@ with tab_verify:
             st.image(d["image_png"], caption=f"{d['name']} — {d['confidence']:.0%}", use_container_width=True)
             if d.get("reason"):
                 st.caption(f"🤖 {d['reason']}")
+            if d.get("extracted_json"):
+                st.success("JSON extracted — paste box populated automatically", icon="✅")
+            elif d.get("extraction_error"):
+                st.warning(f"Extraction failed: {d['extraction_error'][:120]}", icon="⚠️")
             if st.button("✕ Remove", key=f"rm_{bucket}_{idx}_{d['name']}"):
                 st.session_state["routed_docs"][bucket].pop(idx)
                 st.rerun()
@@ -640,7 +439,12 @@ with tab_verify:
             key="invoice_upload",
             label_visibility="collapsed",
         )
-        with st.expander("Or paste JSON directly"):
+        _inv_paste_label = (
+            "JSON auto-extracted from PDF — edit if needed"
+            if st.session_state.get("invoice_paste", "").strip()
+            else "Or paste / edit JSON manually"
+        )
+        with st.expander(_inv_paste_label):
             st.text_area(
                 "Invoice JSON text",
                 key="invoice_paste",
@@ -659,7 +463,12 @@ with tab_verify:
             key="sof_upload",
             label_visibility="collapsed",
         )
-        with st.expander("Or paste JSON directly"):
+        _sof_paste_label = (
+            "JSON auto-extracted from PDF — edit if needed"
+            if st.session_state.get("sof_paste", "").strip()
+            else "Or paste / edit JSON manually"
+        )
+        with st.expander(_sof_paste_label):
             st.text_area(
                 "SOF JSON text",
                 key="sof_paste",
@@ -695,8 +504,8 @@ with tab_verify:
             st.info("Will be auto-processed in a future release.")
         _render_routed("other")
 
-    # ── ChatGPT extraction prompts ────────────
-    with st.expander("💬 ChatGPT extraction prompts — click to copy & paste into ChatGPT"):
+    # ── ChatGPT extraction prompts (manual fallback) ────────────
+    with st.expander("💬 Manual extraction prompts — use only if PDF auto-extraction is unavailable"):
         pt_inv, pt_sof, pt_tug = st.tabs(["📄 Invoice", "📋 SOF", "📎 Tug Confirmation"])
         with pt_inv:
             st.caption("Use this prompt to convert an invoice image or PDF into the Invoice JSON required above.")
