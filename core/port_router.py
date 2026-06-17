@@ -503,15 +503,31 @@ def _build_surcharge_list(
         surcharges.append({"type": "deep_draft", "multiplier": mult})
 
     # --- Shifting ---
-    # Triggers on explicit invoice flag OR when the line's service_type is "Shifting"
+    # Triggers on:
+    #   1. Explicit invoice flag (invoice_line["shifting"] = True)
+    #   2. Invoice service_type is "Shifting"
+    #   3. Matched SOF event service_type is "Shifting" — handles cases where the
+    #      invoice uses a synonym (e.g. "Dehalage", generic "Towing") but the SOF
+    #      records the operation as a shift
+    sof_service_type = str(sof_event.get("type") or sof_event.get("service_type") or "").lower() if sof_event else ""
     is_shifting = (
         invoice_line.get("shifting")
         or invoice_line.get("service_type", "").lower() == "shifting"
+        or sof_service_type == "shifting"
     )
     if is_shifting:
         calc_pattern   = profile.get("calculation_pattern", "")
         shifting_logic = profile.get("shifting_logic")
-        shift_type     = (invoice_line.get("shift_type") or "").lower()
+
+        # Resolve shift_type priority: invoice → SOF explicit field → SOF zone inference
+        shift_type = (invoice_line.get("shift_type") or "").lower()
+        if not shift_type and sof_event:
+            shift_type = (sof_event.get("shift_type") or "").lower()
+        if not shift_type and sof_event:
+            from_zone = str(sof_event.get("from_zone") or "").lower()
+            to_zone   = str(sof_event.get("to_zone")   or "").lower()
+            if from_zone and to_zone:
+                shift_type = "intra_zone" if from_zone == to_zone else "inter_zone"
 
         if calc_pattern == "concession_check_only":
             # No tariff data (Hamburg etc.) — shifting cannot be validated
