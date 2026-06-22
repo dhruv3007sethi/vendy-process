@@ -1,6 +1,5 @@
 pdfplumber
 pymupdf
-mistralai
 chromadb
 sentence-transformers
 python-dotenv

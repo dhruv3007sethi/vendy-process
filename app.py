@@ -32,11 +32,6 @@ from core.invoice_normaliser import (
     is_adjustment_line as _is_adjustment_line,
     infer_service_type as _infer_service_type,
 )
-from core.extraction_prompts import (
-    PROMPT_INVOICE as _PROMPT_INVOICE,
-    PROMPT_SOF as _PROMPT_SOF,
-    PROMPT_TUG_CONFIRMATION as _PROMPT_TUG_CONFIRMATION,
-)
 
 ROOT = pathlib.Path(__file__).parent
 
@@ -96,6 +91,16 @@ def var_color(pct: float) -> str:
         return "#dc3545"
 
 COMMENTS_FILE = ROOT / "officer_comments.json"
+
+# ─────────────────────────────────────────────
+# Extraction prompts — defined in core/pdf_to_json.py (single source of truth)
+# Imported here for the manual ChatGPT copy-paste expander in the UI.
+# ─────────────────────────────────────────────
+from core.pdf_to_json import (
+    INVOICE_EXTRACTION_PROMPT      as _PROMPT_INVOICE,
+    SOF_EXTRACTION_PROMPT          as _PROMPT_SOF,
+    TUG_CONFIRMATION_EXTRACTION_PROMPT as _PROMPT_TUG_CONFIRMATION,
+)
 
 # ─────────────────────────────────────────────
 # Premium styling
@@ -236,9 +241,6 @@ h4 { color: #0d1f3c !important; font-weight: 700 !important; margin-bottom: 0.4r
 }
 /* the "Uploaded" button shows the green tick state */
 [class*="st-key-uploadedbtn_"] button:disabled { color: #16a34a !important; }
-/* per-column file uploaders are hidden — the card is the upload face;
-   uploading happens via the top "Classify & Route" section */
-[class*="st-key-upbox_"] { display: none !important; }
 </style>
 """
 
@@ -366,12 +368,6 @@ with tab_verify:
         "routed_docs", {"invoice": [], "sof": [], "other": []}
     )
 
-    # Agent 2 stages its extracted JSON here; apply it to the paste-box widget
-    # keys BEFORE those text_areas are instantiated below (Streamlit forbids
-    # writing a widget-bound key once its widget has rendered this run).
-    for _paste_key, _json_text in st.session_state.pop("pending_extract", {}).items():
-        st.session_state[_paste_key] = _json_text
-
     pdf_files = st.file_uploader(
         "Upload PDF(s) to classify",
         type=["pdf"],
@@ -381,7 +377,7 @@ with tab_verify:
     )
 
     if pdf_files and st.button("🧭 Classify & Route PDFs", key="classify_route_btn"):
-        from core.document_classifier import classify_pdf
+        from core.pdf_to_json import classify_and_extract
 
         _or_key   = _resolve_secret("OPENROUTER_API_KEY")
         _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → module default
@@ -401,144 +397,39 @@ with tab_verify:
         if not new_files:
             st.info("These PDF(s) have already been classified and routed.")
         else:
-            # Read bytes on the main thread (UploadedFile is not thread-safe).
-            jobs = [(f.name, f.getvalue()) for f in new_files]
-
-            def _classify_one(name, data):
-                return name, classify_pdf(data, api_key=_or_key, model=_or_model)
-
-            # Agent 1 fans out across up to 3 sub-agents (parallel workers) only
-            # when more than one PDF is uploaded at once. A single PDF runs inline.
-            n_workers = min(3, len(jobs)) if len(jobs) > 1 else 1
-            label = f" ({n_workers} sub-agents)" if n_workers > 1 else ""
-
-            results = []  # (name, res|None, err|None)
-            progress = st.progress(0.0, text="Classifying…")
-            if n_workers > 1:
-                from concurrent.futures import ThreadPoolExecutor, as_completed
-                with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                    futs = {pool.submit(_classify_one, n, d): n for n, d in jobs}
-                    done = 0
-                    for fut in as_completed(futs):
-                        name = futs[fut]
-                        try:
-                            _, res = fut.result()
-                            results.append((name, res, None))
-                        except Exception as e:
-                            results.append((name, None, e))
-                        done += 1
-                        progress.progress(done / len(jobs),
-                                          text=f"Classified {done}/{len(jobs)}{label}")
-            else:
-                name, data = jobs[0]
+            progress = st.progress(0.0, text="Classifying & extracting…")
+            for i, f in enumerate(new_files, start=1):
                 try:
-                    _, res = _classify_one(name, data)
-                    results.append((name, res, None))
+                    res = classify_and_extract(f.getvalue(), api_key=_or_key, model=_or_model)
+                    bucket = res["document_type"]  # invoice | sof | other
+                    extracted = res.get("extracted_json")
+                    routed_docs.setdefault(bucket, []).append({
+                        "name":             f.name,
+                        "image_png":        res["image_png"],
+                        "confidence":       res["confidence"],
+                        "reason":           res["reason"],
+                        "model":            res.get("model", ""),
+                        "extracted_json":   extracted,
+                        "extraction_error": res.get("extraction_error"),
+                    })
+                    # Auto-populate the JSON paste box when extraction succeeds
+                    if extracted and bucket in ("invoice", "sof"):
+                        paste_key = "invoice_paste" if bucket == "invoice" else "sof_paste"
+                        st.session_state[paste_key] = json.dumps(extracted, indent=2, ensure_ascii=False)
+                    toast_suffix = " + JSON extracted" if extracted else (
+                        f" (extraction failed: {res.get('extraction_error', '')[:60]})"
+                        if res.get("extraction_error") else ""
+                    )
+                    st.toast(
+                        f"`{f.name}` → {bucket.upper()} "
+                        f"({res['confidence']:.0%}){toast_suffix}",
+                        icon="✅" if extracted else "🔍",
+                    )
                 except Exception as e:
-                    results.append((name, None, e))
-                progress.progress(1.0, text=f"Classified 1/{len(jobs)}")
+                    st.error(f"Failed to classify `{f.name}`: {e}")
+                progress.progress(i / len(new_files), text=f"Classified {i}/{len(new_files)}")
             progress.empty()
-
-            # Apply results on the main thread (Streamlit calls are not thread-safe).
-            for name, res, err in results:
-                if err is not None:
-                    st.error(f"Failed to classify `{name}`: {err}")
-                    continue
-                bucket = res["document_type"]  # invoice | sof | other
-                routed_docs.setdefault(bucket, []).append({
-                    "name":       name,
-                    "image_png":  res["image_png"],
-                    "confidence": res["confidence"],
-                    "reason":     res["reason"],
-                    "model":      res.get("model", ""),
-                })
-                st.toast(
-                    f"`{name}` → {bucket.upper()} ({res['confidence']:.0%})",
-                    icon="✅",
-                )
             st.session_state["routed_docs"] = routed_docs
-
-    # bucket (from Agent 1) → the paste-box widget that feeds route().
-    # "other" has no validated paste target yet, so Agent 2 only extracts for
-    # invoice / sof and shows the JSON for the officer.
-    _PASTE_KEY_FOR_BUCKET = {"invoice": "invoice_paste", "sof": "sof_paste"}
-
-    def _extract_targets(targets: list) -> None:
-        """Run Agent 2 over a list of (bucket, idx) routed images, fanning out
-        across up to 3 sub-agents when there is more than one — across buckets too.
-
-        Each result is stored on its doc as `extracted_json`; any failure is stored
-        as `extract_error`. Both survive the st.rerun() below and are shown under
-        the image, so a failed extraction is never silently swallowed. The single
-        paste box holds only one document, so batch results are surfaced per-image."""
-        _or_key   = _resolve_secret("OPENROUTER_API_KEY")
-        _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → same model as Agent 1
-        if not _or_key:
-            st.error(
-                "OPENROUTER_API_KEY is not configured. Add it to `.env` locally, "
-                "or to **Settings → Secrets** on Streamlit Cloud."
-            )
-            return
-
-        from core.document_extractor import extract_from_image
-        routed = st.session_state.get("routed_docs", {})
-        # Resolve targets to concrete jobs (bucket, idx, name, png).
-        jobs = []
-        for bucket, idx in targets:
-            bucket_docs = routed.get(bucket, [])
-            if 0 <= idx < len(bucket_docs):
-                d = bucket_docs[idx]
-                jobs.append((bucket, idx, d["name"], d["image_png"]))
-        if not jobs:
-            return
-
-        def _extract_one(bucket, idx, name, png):
-            res = extract_from_image(png, bucket, api_key=_or_key, model=_or_model)
-            return bucket, idx, json.dumps(res["data"], indent=2, ensure_ascii=False)
-
-        n_workers = min(3, len(jobs)) if len(jobs) > 1 else 1
-        label = f" ({n_workers} sub-agents)" if n_workers > 1 else ""
-        results = []  # (bucket, idx, json_text|None, err|None)
-
-        progress = st.progress(0.0, text="Extracting…")
-        if n_workers > 1:
-            from concurrent.futures import ThreadPoolExecutor, as_completed
-            with ThreadPoolExecutor(max_workers=n_workers) as pool:
-                futs = {pool.submit(_extract_one, b, i, n, p): (b, i)
-                        for b, i, n, p in jobs}
-                done = 0
-                for fut in as_completed(futs):
-                    b, i = futs[fut]
-                    try:
-                        _, _, jtxt = fut.result()
-                        results.append((b, i, jtxt, None))
-                    except Exception as e:
-                        results.append((b, i, None, e))
-                    done += 1
-                    progress.progress(done / len(jobs),
-                                      text=f"Extracted {done}/{len(jobs)}{label}")
-        else:
-            b, i, name, png = jobs[0]
-            try:
-                _, _, jtxt = _extract_one(b, i, name, png)
-                results.append((b, i, jtxt, None))
-            except Exception as e:
-                results.append((b, i, None, e))
-            progress.progress(1.0, text=f"Extracted 1/{len(jobs)}")
-        progress.empty()
-
-        ok = 0
-        for b, i, jtxt, err in results:
-            doc = st.session_state["routed_docs"][b][i]
-            if err is not None:
-                doc["extract_error"] = str(err)
-                doc.pop("extracted_json", None)
-            else:
-                doc["extracted_json"] = jtxt
-                doc.pop("extract_error", None)
-                ok += 1
-        st.toast(f"Extracted {ok}/{len(jobs)} image(s)", icon="✨")
-        st.rerun()
 
     def _render_upload_card(bucket: str) -> None:
         """Render the column's upload card in both states (replica of upload_cards.py).
@@ -573,83 +464,22 @@ with tab_verify:
                               disabled=True, use_container_width=True)
 
     def _render_routed(bucket: str) -> None:
-        """Per-image Extract / Remove actions for routed PDFs, shown below the card."""
+        """Per-PDF extraction status + remove control, shown below the card.
+
+        Extraction is automatic (classify_and_extract), so there are no manual
+        extract buttons — only status feedback and a remove control. The routed
+        image itself is shown in the card's '👁 View' popover, not re-rendered here."""
         docs = st.session_state.get("routed_docs", {}).get(bucket, [])
         if not docs:
             return
-        paste_key = _PASTE_KEY_FOR_BUCKET.get(bucket)
-
-        # ── Extraction actions ──
-        if len(docs) > 1:
-            if st.button(f"✨ Extract all ({len(docs)}) → JSON", key=f"exall_{bucket}"):
-                _extract_targets([(bucket, idx) for idx in range(len(docs))])
         for idx, d in enumerate(docs):
-            if len(docs) > 1:
-                st.caption(f"`{d['name']}`")
-            c_extract, c_remove = st.columns(2)
-            with c_extract:
-                if st.button("✨ Extract → JSON", key=f"ex_{bucket}_{idx}_{d['name']}"):
-                    _or_key   = _resolve_secret("OPENROUTER_API_KEY")
-                    _or_model = _resolve_secret("OPENROUTER_MODEL")  # None → same model as Agent 1
-                    if not _or_key:
-                        st.error(
-                            "OPENROUTER_API_KEY is not configured. Add it to `.env` locally, "
-                            "or to **Settings → Secrets** on Streamlit Cloud."
-                        )
-                    else:
-                        from core.document_extractor import extract_from_image
-                        try:
-                            with st.spinner(f"Agent 2 reading `{d['name']}`…"):
-                                res = extract_from_image(
-                                    d["image_png"], bucket,
-                                    api_key=_or_key, model=_or_model,
-                                )
-                            json_text = json.dumps(res["data"], indent=2, ensure_ascii=False)
-                            if paste_key:
-                                # Stage for the next run, which seeds the paste box
-                                # before its widget is instantiated, and relabel its
-                                # expander to "Extracted JSON".
-                                st.session_state.setdefault("pending_extract", {})[paste_key] = json_text
-                                st.session_state[f"extracted_{bucket}"] = True
-                                st.toast(f"`{d['name']}` extracted → {bucket.upper()} box", icon="✨")
-                                st.rerun()
-                            else:
-                                # No paste target (e.g. "other"): just show it.
-                                st.session_state["routed_docs"][bucket][idx]["extracted_json"] = json_text
-                                st.rerun()
-                        except Exception as e:
-                            st.error(f"Agent 2 failed on `{d['name']}`: {e}")
-            with c_remove:
-                if st.button("✕ Remove", key=f"rm_{bucket}_{idx}_{d['name']}"):
-                    st.session_state["routed_docs"][bucket].pop(idx)
-                    st.rerun()
-
-            if d.get("extract_error"):
-                st.error(f"Agent 2 failed on `{d['name']}`: {d['extract_error']}")
-            # Batch / "other" extracts (which don't auto-fill a paste box) are
-            # viewable per-image here.
             if d.get("extracted_json"):
-                with st.popover("📦 Extracted JSON"):
-                    st.code(d["extracted_json"], language="json")
-
-    # ── Global batch extraction across all routed images ──
-    _all_targets = [
-        (bucket, idx)
-        for bucket in ("invoice", "sof", "other")
-        for idx in range(len(st.session_state.get("routed_docs", {}).get(bucket, [])))
-    ]
-    if len(_all_targets) > 1:
-        if st.button(
-            f"✨ Extract all routed images ({len(_all_targets)}) → JSON",
-            key="exall_global",
-            type="primary",
-        ):
-            _extract_targets(_all_targets)
-        st.caption(
-            "Runs Agent 2 on every routed image (up to 3 sub-agents in parallel). "
-            "Each result appears under its image — use a single image's button to "
-            "send one extract into the paste box below."
-        )
+                st.success(f"`{d['name']}` — JSON extracted, paste box populated", icon="✅")
+            elif d.get("extraction_error"):
+                st.warning(f"`{d['name']}` — extraction failed: {d['extraction_error'][:120]}", icon="⚠️")
+            if st.button("✕ Remove", key=f"rm_{bucket}_{idx}_{d['name']}"):
+                st.session_state["routed_docs"][bucket].pop(idx)
+                st.rerun()
 
     st.divider()
 
@@ -659,16 +489,12 @@ with tab_verify:
     with col_inv:
         st.markdown("#### 📄 Invoice")
         _render_upload_card("invoice")
-        with st.container(key="upbox_invoice"):
-            invoice_file = st.file_uploader(
-                "Upload Invoice JSON",
-                type=["json"],
-                key="invoice_upload",
-                label_visibility="collapsed",
-            )
-        _inv_extracted = st.session_state.get("extracted_invoice", False)
-        with st.expander("📦 Extracted JSON" if _inv_extracted else "Or paste JSON directly",
-                         expanded=_inv_extracted):
+        _inv_paste_label = (
+            "JSON auto-extracted from PDF — edit if needed"
+            if st.session_state.get("invoice_paste", "").strip()
+            else "Or paste / edit JSON manually"
+        )
+        with st.expander(_inv_paste_label):
             st.text_area(
                 "Invoice JSON text",
                 key="invoice_paste",
@@ -682,16 +508,12 @@ with tab_verify:
     with col_sof:
         st.markdown("#### 📋 SOF")
         _render_upload_card("sof")
-        with st.container(key="upbox_sof"):
-            sof_file = st.file_uploader(
-                "Upload SOF JSON",
-                type=["json"],
-                key="sof_upload",
-                label_visibility="collapsed",
-            )
-        _sof_extracted = st.session_state.get("extracted_sof", False)
-        with st.expander("📦 Extracted JSON" if _sof_extracted else "Or paste JSON directly",
-                         expanded=_sof_extracted):
+        _sof_paste_label = (
+            "JSON auto-extracted from PDF — edit if needed"
+            if st.session_state.get("sof_paste", "").strip()
+            else "Or paste / edit JSON manually"
+        )
+        with st.expander(_sof_paste_label):
             st.text_area(
                 "SOF JSON text",
                 key="sof_paste",
@@ -705,17 +527,6 @@ with tab_verify:
     with col_oth:
         st.markdown("#### 📎 Others")
         _render_upload_card("other")
-        with st.container(key="upbox_other"):
-            other_files = st.file_uploader(
-                "Upload other files",
-                accept_multiple_files=True,
-                key="other_upload",
-                label_visibility="collapsed",
-            )
-        if other_files:
-            st.markdown("**Uploaded files:**")
-            for f in other_files:
-                st.markdown(f"- `{f.name}`")
         with st.expander("Or paste JSON directly"):
             st.text_area(
                 "Others JSON text",
@@ -725,12 +536,12 @@ with tab_verify:
                 label_visibility="collapsed",
             )
             _json_status(st.session_state.get("others_paste", ""))
-        if other_files or st.session_state.get("others_paste", "").strip():
+        if st.session_state.get("others_paste", "").strip():
             st.info("Will be auto-processed in a future release.")
         _render_routed("other")
 
-    # ── ChatGPT extraction prompts ────────────
-    with st.expander("💬 ChatGPT extraction prompts — click to copy & paste into ChatGPT"):
+    # ── ChatGPT extraction prompts (manual fallback) ────────────
+    with st.expander("💬 Manual extraction prompts — use only if PDF auto-extraction is unavailable"):
         pt_inv, pt_sof, pt_tug = st.tabs(["📄 Invoice", "📋 SOF", "📎 Tug Confirmation"])
         with pt_inv:
             st.caption("Use this prompt to convert an invoice image or PDF into the Invoice JSON required above.")
@@ -748,11 +559,11 @@ with tab_verify:
     selected_port = st.selectbox("Select Port", options=all_port_keys, index=None,
                                  placeholder="Choose a port…")
 
-    # ── Resolve inputs (file takes precedence over paste) ─────────────
+    # ── Resolve inputs (auto-extracted or pasted JSON) ─────────────
     invoice_text = st.session_state.get("invoice_paste", "").strip()
     sof_text     = st.session_state.get("sof_paste", "").strip()
-    invoice_ready = invoice_file is not None or _valid_json(invoice_text)
-    sof_ready     = sof_file     is not None or _valid_json(sof_text)
+    invoice_ready = _valid_json(invoice_text)
+    sof_ready     = _valid_json(sof_text)
 
     # ── Run button ────────────────────────────
     can_run = invoice_ready and sof_ready and selected_port is not None
@@ -779,8 +590,8 @@ with tab_verify:
         try:
             from core.port_router import route
 
-            invoice_dict = json.load(invoice_file) if invoice_file else json.loads(invoice_text)
-            sof_dict     = json.load(sof_file)     if sof_file     else json.loads(sof_text)
+            invoice_dict = json.loads(invoice_text)
+            sof_dict     = json.loads(sof_text)
             tariff_dict  = load_tariff(selected_port)
 
             sof_dict     = normalise_sof(sof_dict)   # handle ChatGPT SOF format
@@ -985,6 +796,45 @@ with tab_verify:
     <div><span style="color:#6b7a9d;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Variance</span><br>
          <span style="color:{var_color(var_pct)};font-weight:700;font-size:0.92rem;">{var_pct:+.2f}%</span>
          <span style="color:#6b7a9d;font-size:0.78rem;"> ({fmt_eur(var_amt, currency)})</span></div>
+  </div>
+</div>
+""", unsafe_allow_html=True)
+
+            # ── Shifting cost sub-item ────────────────────────────
+            # If this line has a shifting surcharge applied, show it as a
+            # clearly labelled separate sub-row so the officer can see the
+            # base towage cost and the shifting premium side by side.
+            _shifting_surcharges = [
+                s for s in (li.get("surcharges_applied") or [])
+                if s.get("name") == "shifting"
+            ]
+            for _sc in _shifting_surcharges:
+                _sc_amt  = _sc.get("amount", 0.0)
+                _sc_mult = _sc.get("multiplier", 1.0)
+                _sc_type = (_sc.get("shift_type") or "").replace("_", "-")
+                _sc_base = round(expected - _sc_amt, 2) if expected else 0.0
+                _sc_label = f"Shifting Costs ({_sc_type})" if _sc_type else "Shifting Costs"
+                st.markdown(f"""
+<div style="background:#f7f9fd;border:1px solid #dde4f0;border-radius:8px;
+            padding:0.6rem 1.25rem;margin:-0.3rem 0 0.5rem 1.75rem;
+            border-left:3px solid #6c757d;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.4rem;">
+    <div style="font-weight:600;color:#4a5568;font-size:0.88rem;">
+        &#8627;&nbsp; {_sc_label}
+        <span style="font-weight:400;color:#6b7a9d;font-size:0.8rem;margin-left:0.5rem;">
+            &times;{_sc_mult} on base
+        </span>
+    </div>
+    <span style="background:#6c757d;color:white;padding:2px 10px;border-radius:12px;
+                 font-size:0.75rem;font-weight:600;">SURCHARGE</span>
+  </div>
+  <div style="display:flex;gap:2.5rem;margin-top:0.4rem;flex-wrap:wrap;">
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Base Towage</span><br>
+         <span style="color:#4a5568;font-weight:600;font-size:0.88rem;">{fmt_eur(_sc_base, currency)}</span></div>
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Shifting Premium</span><br>
+         <span style="color:#4a5568;font-weight:600;font-size:0.88rem;">{fmt_eur(_sc_amt, currency)}</span></div>
+    <div><span style="color:#6b7a9d;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;">Total Expected</span><br>
+         <span style="color:#0d1f3c;font-weight:700;font-size:0.88rem;">{fmt_eur(expected, currency)}</span></div>
   </div>
 </div>
 """, unsafe_allow_html=True)
