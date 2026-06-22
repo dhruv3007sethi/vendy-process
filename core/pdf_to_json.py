@@ -288,11 +288,13 @@ def render_pdf_page_strips(
     max_pages: int = 6,
     n_strips: int = STRIP_COUNT,
     overlap_frac: float = 0.06,
-) -> List[List[bytes]]:
+    header_frac: float = 0.11,
+) -> List[Dict[str, Any]]:
     """
-    Render each page as n_strips horizontal bands (top → bottom) at high DPI.
+    Render each page as n_strips horizontal bands (top → bottom) at high DPI,
+    plus a small header band cropped from the top of the page.
 
-    Returns one list of strip-PNGs per page: [[p0_strip0, …, p0_strip4], …].
+    Returns one dict per page: {"header": <png>, "strips": [<png>, …]}.
 
     This is the detail-recovery fallback. A full page rendered to a single
     image is downscaled by the vision API's per-image tile budget, so fine
@@ -300,6 +302,12 @@ def render_pdf_page_strips(
     into 5 bands and rendering each at a higher DPI gives the model far more
     pixels per region. Consecutive bands overlap by overlap_frac of strip
     height so a table row sitting on a boundary is not sliced away.
+
+    The header band is the top header_frac of the page (the invoice/vessel
+    header and the table's column titles). It is sent alongside *every* strip
+    so that a lower, headerless band still resolves what its columns mean —
+    without it the model frequently returns no rows for middle/bottom bands,
+    yielding only the first part of the document.
     """
     try:
         import fitz
@@ -309,10 +317,16 @@ def render_pdf_page_strips(
     doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     zoom = dpi / 72.0
     matrix = fitz.Matrix(zoom, zoom)
-    pages: List[List[bytes]] = []
+    pages: List[Dict[str, Any]] = []
     for pi in range(min(doc.page_count, max_pages)):
         page = doc[pi]
         rect = page.rect
+
+        header_clip = fitz.Rect(
+            rect.x0, rect.y0, rect.x1, rect.y0 + rect.height * header_frac
+        )
+        header = page.get_pixmap(matrix=matrix, clip=header_clip).tobytes("png")
+
         strip_h = rect.height / n_strips
         overlap = strip_h * overlap_frac
         strips: List[bytes] = []
@@ -322,7 +336,7 @@ def render_pdf_page_strips(
             clip = fitz.Rect(rect.x0, y0, rect.x1, y1)
             pix = page.get_pixmap(matrix=matrix, clip=clip)
             strips.append(pix.tobytes("png"))
-        pages.append(strips)
+        pages.append({"header": header, "strips": strips})
     doc.close()
     return pages
 
@@ -541,28 +555,39 @@ def classify_and_extract(
 
     # Step 3: detail-recovery fallback. If the full page was unreadable —
     # extraction failed, or it parsed but yielded no rows — re-render each page
-    # as STRIP_COUNT high-DPI horizontal strips (top → bottom), extract each
-    # strip on its own (so it gets the model's full per-image resolution
-    # budget), then merge the rows back together.
+    # as STRIP_COUNT high-DPI horizontal strips (top → bottom) and extract each
+    # strip on its own (so it gets the model's full per-image resolution budget),
+    # then merge the rows back together. Each strip is sent together with the
+    # page's header band so headerless lower bands still resolve their columns —
+    # otherwise only the first part of the document comes back.
     if not _has_rows(extracted, doc_type):
         try:
             parts: List[dict] = []
-            for page_strips in render_pdf_page_strips(
+            failures = 0
+            for page in render_pdf_page_strips(
                 pdf_bytes, dpi=dpi_strips, max_pages=max_extract_pages
             ):
-                for strip in page_strips:
-                    parts.append(
-                        extract_json_from_images(
-                            [strip], prompt, api_key=api_key, model=resolved_model
+                header = page["header"]
+                for strip in page["strips"]:
+                    # Resilient per-strip: one unreadable/blank band must not
+                    # discard the rows already recovered from the others.
+                    try:
+                        parts.append(
+                            extract_json_from_images(
+                                [header, strip], prompt,
+                                api_key=api_key, model=resolved_model,
+                            )
                         )
-                    )
+                    except Exception as strip_err:
+                        failures += 1
+                        logger.warning(f"Strip extraction failed: {strip_err}")
             merged = _merge_strip_extractions(parts, doc_type)
             if _has_rows(merged, doc_type):
                 extracted = merged
                 result["extraction_error"] = None  # recovered
                 logger.info(
                     f"Strip fallback recovered {len(merged.get(_rows_key(doc_type), []))} "
-                    f"rows for {doc_type}"
+                    f"rows for {doc_type} ({failures} strip(s) unreadable)"
                 )
             elif extracted is None:
                 extracted = merged  # keep whatever header fields were found
