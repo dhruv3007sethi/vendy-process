@@ -278,6 +278,55 @@ def render_pdf_pages(
     return pages
 
 
+# Number of horizontal strips the detail-recovery fallback splits each page into.
+STRIP_COUNT = 5
+
+
+def render_pdf_page_strips(
+    pdf_bytes: bytes,
+    dpi: int = 220,
+    max_pages: int = 6,
+    n_strips: int = STRIP_COUNT,
+    overlap_frac: float = 0.06,
+) -> List[List[bytes]]:
+    """
+    Render each page as n_strips horizontal bands (top → bottom) at high DPI.
+
+    Returns one list of strip-PNGs per page: [[p0_strip0, …, p0_strip4], …].
+
+    This is the detail-recovery fallback. A full page rendered to a single
+    image is downscaled by the vision API's per-image tile budget, so fine
+    print (dense invoice/SOF tables) can become unreadable. Splitting the page
+    into 5 bands and rendering each at a higher DPI gives the model far more
+    pixels per region. Consecutive bands overlap by overlap_frac of strip
+    height so a table row sitting on a boundary is not sliced away.
+    """
+    try:
+        import fitz
+    except ImportError:
+        raise ImportError("PyMuPDF not installed. Run: pip install pymupdf")
+
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    zoom = dpi / 72.0
+    matrix = fitz.Matrix(zoom, zoom)
+    pages: List[List[bytes]] = []
+    for pi in range(min(doc.page_count, max_pages)):
+        page = doc[pi]
+        rect = page.rect
+        strip_h = rect.height / n_strips
+        overlap = strip_h * overlap_frac
+        strips: List[bytes] = []
+        for i in range(n_strips):
+            y0 = max(rect.y0, rect.y0 + i * strip_h - overlap)
+            y1 = min(rect.y1, rect.y0 + (i + 1) * strip_h + overlap)
+            clip = fitz.Rect(rect.x0, y0, rect.x1, y1)
+            pix = page.get_pixmap(matrix=matrix, clip=clip)
+            strips.append(pix.tobytes("png"))
+        pages.append(strips)
+    doc.close()
+    return pages
+
+
 # ---------------------------------------------------------------------------
 # EXTRACT JSON FROM IMAGES VIA VISION LLM
 # ---------------------------------------------------------------------------
@@ -369,6 +418,52 @@ def _parse_json_response(content: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# STRIP-FALLBACK MERGE
+# ---------------------------------------------------------------------------
+
+def _rows_key(doc_type: str) -> str:
+    """The list field that holds the repeating rows for each document type."""
+    return "events" if doc_type == "sof" else "line_items"
+
+
+def _has_rows(extracted: Any, doc_type: str) -> bool:
+    """True when extraction produced at least one usable row."""
+    return isinstance(extracted, dict) and bool(extracted.get(_rows_key(doc_type)))
+
+
+def _merge_strip_extractions(parts: List[dict], doc_type: str) -> dict:
+    """
+    Merge per-strip extraction dicts into one document dict.
+
+    - Header fields (everything except the rows list): take the first non-empty
+      value seen — the top strip usually carries the invoice/vessel header.
+    - Rows (line_items / events): concatenated top → bottom, de-duplicated by
+      exact content so the band overlap does not double-count a row.
+    """
+    rows_key = _rows_key(doc_type)
+    merged: Dict[str, Any] = {}
+    rows: List[Any] = []
+    seen: set = set()
+
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        for k, v in part.items():
+            if k == rows_key:
+                continue
+            if merged.get(k) in (None, "", [], {}) and v not in (None, "", [], {}):
+                merged[k] = v
+        for row in part.get(rows_key, []) or []:
+            sig = json.dumps(row, sort_keys=True, ensure_ascii=False)
+            if sig not in seen:
+                seen.add(sig)
+                rows.append(row)
+
+    merged[rows_key] = rows
+    return merged
+
+
+# ---------------------------------------------------------------------------
 # MAIN ENTRY POINT
 # ---------------------------------------------------------------------------
 
@@ -378,6 +473,7 @@ def classify_and_extract(
     model: Optional[str] = None,
     dpi_classify: int = 150,
     dpi_extract: int = 100,
+    dpi_strips: int = 220,
     max_extract_pages: int = 6,
 ) -> Dict[str, Any]:
     """
@@ -387,6 +483,11 @@ def classify_and_extract(
     Extraction renders all pages (up to max_extract_pages) at dpi_extract
     (100 default) to keep the vision payload manageable.
 
+    Detail-recovery fallback: if the full-page extraction fails or returns no
+    rows (the model could not read dense fine print), each page is re-rendered
+    as STRIP_COUNT high-DPI horizontal strips (top → bottom, dpi_strips), each
+    strip is extracted on its own, and the rows are merged back together.
+
     Args:
         pdf_bytes:         Raw bytes of the uploaded PDF.
         api_key:           OpenRouter API key.
@@ -394,6 +495,8 @@ def classify_and_extract(
                            OPENROUTER_MODEL, then "openai/gpt-4o-mini".
         dpi_classify:      Render DPI for classification (first page only).
         dpi_extract:       Render DPI for extraction (all pages).
+        dpi_strips:        Render DPI for the per-strip fallback (higher, so the
+                           split bands recover fine print missed on the full page).
         max_extract_pages: Maximum pages to send to the extraction LLM.
 
     Returns a dict with keys:
@@ -422,18 +525,51 @@ def classify_and_extract(
         # "other" — no extraction prompt available
         return result
 
-    # Step 2: render all pages + extract JSON
+    # Step 2: render all pages + extract JSON from the full page
     prompt = _PROMPT_BY_DOCTYPE[doc_type]
+    extracted: Optional[dict] = None
     try:
         pages = render_pdf_pages(pdf_bytes, dpi=dpi_extract, max_pages=max_extract_pages)
         extracted = extract_json_from_images(pages, prompt, api_key=api_key, model=resolved_model)
-        result["extracted_json"] = extracted
         logger.info(
             f"Extracted {doc_type} JSON: "
-            f"{len(extracted.get('line_items', extracted.get('events', [])))} rows"
+            f"{len(extracted.get(_rows_key(doc_type), []))} rows"
         )
     except Exception as e:
         result["extraction_error"] = str(e)
-        logger.warning(f"JSON extraction failed for {doc_type}: {e}")
+        logger.warning(f"Full-page JSON extraction failed for {doc_type}: {e}")
 
+    # Step 3: detail-recovery fallback. If the full page was unreadable —
+    # extraction failed, or it parsed but yielded no rows — re-render each page
+    # as STRIP_COUNT high-DPI horizontal strips (top → bottom), extract each
+    # strip on its own (so it gets the model's full per-image resolution
+    # budget), then merge the rows back together.
+    if not _has_rows(extracted, doc_type):
+        try:
+            parts: List[dict] = []
+            for page_strips in render_pdf_page_strips(
+                pdf_bytes, dpi=dpi_strips, max_pages=max_extract_pages
+            ):
+                for strip in page_strips:
+                    parts.append(
+                        extract_json_from_images(
+                            [strip], prompt, api_key=api_key, model=resolved_model
+                        )
+                    )
+            merged = _merge_strip_extractions(parts, doc_type)
+            if _has_rows(merged, doc_type):
+                extracted = merged
+                result["extraction_error"] = None  # recovered
+                logger.info(
+                    f"Strip fallback recovered {len(merged.get(_rows_key(doc_type), []))} "
+                    f"rows for {doc_type}"
+                )
+            elif extracted is None:
+                extracted = merged  # keep whatever header fields were found
+        except Exception as e:
+            if not result.get("extraction_error"):
+                result["extraction_error"] = str(e)
+            logger.warning(f"Strip fallback failed for {doc_type}: {e}")
+
+    result["extracted_json"] = extracted
     return result
