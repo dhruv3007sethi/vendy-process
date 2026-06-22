@@ -60,17 +60,34 @@ _ADJUSTMENT_KEYWORDS: frozenset = frozenset([
     "bunker adj",
 ])
 
+# Tariff-validated service types. Description-based adjustment detection is
+# suppressed for these so that a Berth line described as "Berth - Holiday Rate"
+# is not misclassified as a flat ADJUSTMENT and bypasses tariff validation.
+_TARIFF_SERVICE_TYPES: frozenset = frozenset([
+    "berth", "unberth", "shifting", "overtime",
+    "inward", "outward",           # common aliases from Dutch/Belgian invoices
+])
+
 
 def _classify_as_adjustment(service_type: str, description: str = "") -> str:
     """
     Returns the matched keyword if the line is a non-tariff adjustment,
     or an empty string if it should be validated against the tariff.
-    Checks both service_type and description — invoices often carry the
-    keyword only in the description (e.g. service_type='Unberth', description='HOLIDAY').
+
+    service_type is always checked. description is only checked when
+    service_type is NOT a known tariff service type — this prevents a
+    Berth line whose description mentions "holiday" from being misclassified
+    as a flat ADJUSTMENT instead of being run through the tariff + surcharge path.
     """
-    for text in (service_type.lower(), description.lower()):
+    st_lower = service_type.lower()
+    for kw in _ADJUSTMENT_KEYWORDS:
+        if kw in st_lower:
+            return kw
+    # Only scan description when service_type does not identify a tariff service.
+    if st_lower not in _TARIFF_SERVICE_TYPES and description:
+        desc_lower = description.lower()
         for kw in _ADJUSTMENT_KEYWORDS:
-            if kw in text:
+            if kw in desc_lower:
                 return kw
     return ""
 
@@ -317,23 +334,161 @@ def _get_tug_count(sof_event: Optional[dict], invoice_line: dict, tug_count_sour
 
 
 # ---------------------------------------------------------------------------
+# SOF TIMING ANALYSER
+# ---------------------------------------------------------------------------
+
+def _analyse_sof_timing(sof_event: dict) -> dict:
+    """
+    Derives timing-based surcharge indicators from a SOF event.
+
+    Returns:
+        is_weekend               : bool  — Saturday or Sunday
+        is_saturday              : bool
+        is_sunday                : bool
+        pct_outside_normal_hours : float 0.0–1.0, or None if timing unavailable
+                                   Fraction of service duration outside Mon–Fri 07:00–17:00
+    """
+    if not sof_event:
+        return {}
+
+    date_str  = (sof_event.get("date") or "")[:10]
+    start_str = (
+        sof_event.get("tugs_alongside_time")
+        or sof_event.get("time")
+        or (sof_event.get("timestamp") or "")[:5]
+        or ""
+    )
+    duration_mins = int(sof_event.get("duration_mins") or 0)
+
+    if not date_str:
+        return {}
+
+    try:
+        svc_date = datetime.strptime(date_str, "%Y-%m-%d")
+    except ValueError:
+        return {}
+
+    weekday     = svc_date.weekday()   # 0=Mon … 6=Sun
+    is_saturday = weekday == 5
+    is_sunday   = weekday == 6
+    is_weekend  = is_saturday or is_sunday
+
+    pct_outside = None
+    if start_str and duration_mins > 0:
+        try:
+            h, m = int(start_str[:2]), int(start_str[3:5])
+            start_total = h * 60 + m
+            end_total   = start_total + duration_mins
+        except (ValueError, IndexError):
+            start_total = end_total = None
+
+        if start_total is not None:
+            if is_weekend:
+                pct_outside = 1.0
+            else:
+                NORMAL_START = 7 * 60    # 07:00 = 420 mins
+                NORMAL_END   = 17 * 60   # 17:00 = 1020 mins
+                overlap      = max(0, min(end_total, NORMAL_END) - max(start_total, NORMAL_START))
+                pct_outside  = (duration_mins - overlap) / duration_mins
+
+    return {
+        "is_weekend":               is_weekend,
+        "is_saturday":              is_saturday,
+        "is_sunday":                is_sunday,
+        "pct_outside_normal_hours": pct_outside,
+    }
+
+
+# ---------------------------------------------------------------------------
 # SURCHARGE BUILDER
 # ---------------------------------------------------------------------------
 
-def _build_surcharge_list(invoice_line: dict, profile: dict, port: str) -> List[Dict[str, Any]]:
+def _build_surcharge_list(
+    invoice_line: dict,
+    profile: dict,
+    port: str,
+    sof_event: Optional[dict] = None,
+) -> tuple:
     """
-    Builds the list of applicable surcharges from invoice line flags.
+    Builds the list of applicable surcharges from SOF timing and invoice line flags.
+
+    Holiday/weekend detection uses SOF timing where possible, guided by the
+    port's timing_surcharge_rules profile entry:
+      "weekend"            — auto-apply when SOF date is Saturday or Sunday
+      "outside_hours_50pct"— auto-apply when ≥threshold % of service falls
+                             outside Mon–Fri 07:00–17:00 (Rostock rule)
+      "public_holiday_only"— cannot auto-detect; flag REVIEW when invoice
+                             claims the surcharge
+
+    Returns:
+        (surcharges, review_reasons)
+        surcharges    : list of {type, multiplier, ...} dicts consumed by apply_surcharges()
+        review_reasons: list of human-readable strings to append to human_review_reason
     """
-    surcharges = []
-    multipliers = profile.get("surcharge_multipliers") or {}
+    surcharges     = []
+    review_reasons = []
+    multipliers    = profile.get("surcharge_multipliers") or {}
+    timing         = _analyse_sof_timing(sof_event) if sof_event else {}
+    timing_rules   = profile.get("timing_surcharge_rules", {})
 
     if invoice_line.get("dead_ship"):
         mult = multipliers.get("dead_ship", 1.5)
         surcharges.append({"type": "dead_ship", "multiplier": mult})
 
-    if invoice_line.get("holiday") or invoice_line.get("weekend"):
-        mult = multipliers.get("sunday_public_holiday", 1.25)
-        surcharges.append({"type": "holiday_weekend", "multiplier": mult})
+    # --- Holiday / Weekend ---
+    holiday_cfg  = timing_rules.get("sunday_public_holiday", {})
+    trigger      = holiday_cfg.get("trigger", "weekend")
+    ot_threshold = float(holiday_cfg.get("outside_hours_pct_threshold", 0.5))
+    invoice_flag = bool(invoice_line.get("holiday") or invoice_line.get("weekend"))
+    mult_hol     = multipliers.get("sunday_public_holiday", 1.25)
+
+    apply_holiday = False
+
+    if trigger == "outside_hours_50pct":
+        # Rostock: applies when ≥50% of service is outside Mon–Fri 07:00–17:00
+        pct = timing.get("pct_outside_normal_hours")
+        if pct is not None:
+            if pct >= ot_threshold:
+                apply_holiday = True
+            elif invoice_flag:
+                review_reasons.append(
+                    f"{port}: invoice claims evening/weekend/holiday surcharge but only "
+                    f"{pct * 100:.0f}% of service was outside normal hours "
+                    f"(threshold {ot_threshold * 100:.0f}%) — verify"
+                )
+        elif invoice_flag:
+            apply_holiday = True   # SOF timing unavailable — trust invoice flag
+        # Public holiday component is always unverifiable from timing
+        if invoice_flag and not apply_holiday:
+            review_reasons.append(
+                f"{port}: invoice claims holiday surcharge — "
+                "cannot verify public holiday status from SOF; confirm before approving"
+            )
+
+    elif trigger == "public_holiday_only":
+        # Rotterdam / Dordrecht: weekends do NOT attract this surcharge;
+        # public holidays cannot be auto-detected without a holiday calendar.
+        if invoice_flag:
+            review_reasons.append(
+                f"{port}: invoice claims public holiday surcharge — "
+                "cannot verify holiday status from SOF; confirm before approving"
+            )
+
+    else:  # "weekend" (default) — Antwerp and any unspecified port
+        if timing.get("is_weekend"):
+            apply_holiday = True
+        elif invoice_flag and timing:
+            # SOF timing available and says weekday → likely a public holiday claim
+            review_reasons.append(
+                f"{port}: invoice claims holiday surcharge on a weekday "
+                "— cannot verify public holiday status from SOF; confirm before approving"
+            )
+        elif invoice_flag:
+            # No SOF timing at all — fall back to invoice flag
+            apply_holiday = True
+
+    if apply_holiday:
+        surcharges.append({"type": "holiday_weekend", "multiplier": mult_hol})
 
     if invoice_line.get("fog") or invoice_line.get("limited_visibility"):
         mult = multipliers.get("fog_visibility", 1.5)
@@ -347,13 +502,101 @@ def _build_surcharge_list(invoice_line: dict, profile: dict, port: str) -> List[
         mult = multipliers.get("deep_draft", 1.5)
         surcharges.append({"type": "deep_draft", "multiplier": mult})
 
-    if invoice_line.get("shifting"):
-        mult = multipliers.get("shifting", 1.3)
-        surcharges.append({
-            "type": "shifting", 
-            "multiplier": mult,
-            "shift_type": invoice_line.get("shift_type", "intra_area")
-        })
+    # --- Shifting ---
+    # Triggers on:
+    #   1. Explicit invoice flag (invoice_line["shifting"] = True)
+    #   2. Invoice service_type is "Shifting"
+    #   3. Matched SOF event service_type is "Shifting" — handles cases where the
+    #      invoice uses a synonym (e.g. "Dehalage", generic "Towing") but the SOF
+    #      records the operation as a shift
+    sof_service_type = str(sof_event.get("type") or sof_event.get("service_type") or "").lower() if sof_event else ""
+    is_shifting = (
+        invoice_line.get("shifting")
+        or invoice_line.get("service_type", "").lower() == "shifting"
+        or sof_service_type == "shifting"
+    )
+    if is_shifting:
+        calc_pattern   = profile.get("calculation_pattern", "")
+        shifting_logic = profile.get("shifting_logic")
+
+        # Resolve shift_type priority: invoice → SOF explicit field → SOF zone inference
+        shift_type = (invoice_line.get("shift_type") or "").lower()
+        if not shift_type and sof_event:
+            shift_type = (sof_event.get("shift_type") or "").lower()
+        if not shift_type and sof_event:
+            from_zone = str(sof_event.get("from_zone") or "").lower()
+            to_zone   = str(sof_event.get("to_zone")   or "").lower()
+            if from_zone and to_zone:
+                shift_type = "intra_zone" if from_zone == to_zone else "inter_zone"
+
+        if calc_pattern == "concession_check_only":
+            # No tariff data (Hamburg etc.) — shifting cannot be validated
+            review_reasons.append(
+                f"{port}: no tariff data — shifting charge cannot be validated; "
+                "confirm amount with vendor"
+            )
+
+        elif isinstance(shifting_logic, dict) and shifting_logic:
+            # Port has structured shifting_logic — find the intra / inter rule
+            intra_key = next((k for k in shifting_logic if k.startswith("intra")), None)
+            inter_key = next((k for k in shifting_logic if k.startswith("inter")), None)
+
+            # Select active rule from invoice shift_type; default to intra
+            if shift_type.startswith("inter") and inter_key:
+                active_key = inter_key
+            elif shift_type.startswith("intra") and intra_key:
+                active_key = intra_key
+            elif intra_key:
+                active_key = intra_key
+                if inter_key:
+                    review_reasons.append(
+                        f"{port}: shift type not specified on invoice — assuming "
+                        f"{intra_key}; verify if this is an inter-area/zone shift"
+                    )
+            else:
+                active_key = next(iter(shifting_logic), None)
+
+            rule = shifting_logic.get(active_key) if active_key else None
+
+            if isinstance(rule, str) and ("review" in rule or "special" in rule):
+                review_reasons.append(
+                    f"{port}: {(active_key or '').replace('_', ' ')} shifting "
+                    "requires special arrangement — cannot validate automatically; "
+                    "escalate to vendor"
+                )
+            elif isinstance(rule, dict):
+                mult    = float(rule.get("multiplier", 1.3))
+                max_hrs = rule.get("max_duration_hrs")
+                surcharges.append({
+                    "type": "shifting",
+                    "multiplier": mult,
+                    "shift_type": active_key or shift_type,
+                })
+                if max_hrs and sof_event:
+                    dur = int(sof_event.get("duration_mins") or 0)
+                    if dur > max_hrs * 60:
+                        review_reasons.append(
+                            f"{port}: shifting duration {dur} min exceeds tariff "
+                            f"maximum {int(max_hrs * 60)} min — excess time may "
+                            "require separate billing at overtime rates"
+                        )
+            else:
+                # Unrecognised rule string — safe fallback
+                mult = multipliers.get("shifting", 1.3)
+                surcharges.append({
+                    "type": "shifting",
+                    "multiplier": mult,
+                    "shift_type": active_key or shift_type,
+                })
+
+        else:
+            # No structured shifting_logic — use surcharge_multipliers.shifting
+            mult = multipliers.get("shifting", 1.3)
+            surcharges.append({
+                "type": "shifting",
+                "multiplier": mult,
+                "shift_type": shift_type or "intra_area",
+            })
 
     if invoice_line.get("dry_dock"):
         mult = multipliers.get("dry_dock", 1.5)
@@ -363,7 +606,7 @@ def _build_surcharge_list(invoice_line: dict, profile: dict, port: str) -> List[
         mult = multipliers.get("late_order", 2.0)
         surcharges.append({"type": "late_order", "multiplier": mult})
 
-    return surcharges
+    return surcharges, review_reasons
 
 
 # ---------------------------------------------------------------------------
@@ -1472,10 +1715,17 @@ def _route_single_date(
                 )
 
             # 2. Surcharges (skip for separately-billed overtime lines)
-            surcharge_list = (
-                [] if service_type.lower() == "overtime"
-                else _build_surcharge_list(invoice_line, profile, port)
-            )
+            if service_type.lower() == "overtime":
+                surcharge_list, _surch_review = [], []
+            else:
+                surcharge_list, _surch_review = _build_surcharge_list(
+                    invoice_line, profile, port, sof_event
+                )
+            for _reason in _surch_review:
+                human_review_flag = True
+                human_review_reason = (
+                    f"{human_review_reason}; {_reason}" if human_review_reason else _reason
+                )
             surcharge_report = None
             if surcharge_list:
                 base_for_surcharges = float(handler_result.get("total_rate") or 0.0)

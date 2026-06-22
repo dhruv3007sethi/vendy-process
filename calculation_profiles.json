@@ -46,6 +46,16 @@
         "base_1st_2nd_hour": 1600.94,
         "trigger": "after standard assist to berth if tug retained"
       },
+      "shifting_logic": {
+        "intra_zone": {
+          "multiplier": 0.75,
+          "note": "25% discount on base rate when shifting within the same zone"
+        },
+        "inter_zone": {
+          "multiplier": 2.0,
+          "note": "100% surcharge (double rate) when shifting between different zones"
+        }
+      },
       "requires_human_review_for": [
         "zone_7_excess_billing_stacking"
       ],
@@ -82,6 +92,12 @@
         "sunday_public_holiday": 1.5,
         "hemiksem_hoboken": 1.15
       },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "weekend",
+          "note": "Applies to Sunday and public holidays; SOF date auto-detects Sunday; public holidays flagged for review"
+        }
+      },
       "shifting_logic": "cumulative_sum_of_assisted_sections",
       "requires_human_review_for": [],
       "notes": "Holiday window: 22:00 day before to 07:00 day after"
@@ -109,14 +125,29 @@
         "MAASVLAKTE": "maasvlakte_ii_rate"
       },
       "shifting_logic": {
-        "intra_area": "40pct_surcharge_max_3hrs",
-        "inter_area": "special_arrangement_required"
+        "intra_area": {
+          "multiplier": 1.4,
+          "max_duration_hrs": 3.0,
+          "note": "40% surcharge on base rate; billing capped at 3 hours"
+        },
+        "inter_area": "review_required"
       },
       "special_surcharges": {
         "LNG_vessels": 2.5,
         "deep_draft_vessels": 1.5,
-        "fog_visibility_under_500m": 1.5,
-        "holidays": 1.25
+        "fog_visibility_under_500m": 1.5
+      },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25,
+        "lng_vessel": 2.5,
+        "deep_draft": 1.5,
+        "fog_visibility": 1.5
+      },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "public_holiday_only",
+          "note": "Weekends do NOT attract a surcharge at Rotterdam; public holidays only — flag for review"
+        }
       },
       "requires_human_review_for": [
         "inter_area_shifts"
@@ -148,13 +179,23 @@
           "column_9_undefined"
         ]
       },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25
+      },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "public_holiday_only",
+          "note": "Officially recognized holidays only — not weekends; flag for review"
+        }
+      },
       "requires_human_review_for": [
         "column_9_undefined"
       ],
       "open_doubts": [
         "Section 1 terminals confirmed as Zeehaven/Julianahaven/Zwijndrecht/s-Gravendeel",
         "Column 9 referenced in fog surcharge exclusion is undefined — fog surcharge applicability uncertain for these services"
-      ]
+      ],
+      "notes": "Holiday window: 17:00 day before to 07:00 day after"
     },
     "Santo_Domingo_Haina": {
       "dimension_type": "GT",
@@ -209,13 +250,23 @@
         "scheme": "German Ports concession",
         "pct": 15.0
       },
+      "surcharge_multipliers": {
+        "sunday_public_holiday": 1.25
+      },
+      "timing_surcharge_rules": {
+        "sunday_public_holiday": {
+          "trigger": "outside_hours_50pct",
+          "outside_hours_pct_threshold": 0.5,
+          "note": "Applies only if ≥50% of service is outside Mon–Fri 07:00–17:00; auto-evaluated from SOF timing"
+        }
+      },
       "requires_human_review_for": [
         "ice_breaking_base_tariff"
       ],
       "open_doubts": [
         "Ice surcharge (25%) and ice breaking (50%) both reference 'Tariff A and B' but it is ambiguous whether surcharge applies to Tariff A only, Tariff B only, or both combined"
       ],
-      "notes": "Evening/weekend/holiday surcharge (25%) applies only if at least 50% of service is outside Mon-Fri 07:00-17:00"
+      "notes": "Evening/weekend/holiday surcharge (25%) applies only if at least 50% of service is outside Mon-Fri 07:00-17:00 — engine cannot auto-evaluate this condition; flag for human review if invoice claims this surcharge"
     },
     "Hamburg": {
       "dimension_type": "none",
